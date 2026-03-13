@@ -157,23 +157,6 @@ export function StarterRateExperiencePage() {
                 ease: 'easeOut',
               }}
             >
-              <section className="landing-hero">
-                <div className="landing-copy">
-                  <p className="landing-kicker">
-                    Yu-Gi-Oh starter-rate playground
-                  </p>
-                  <h1>
-                    Load the deck first. Then move into the starter-rate board.
-                  </h1>
-                  <p className="landing-body">
-                    Stage one is only for import. Upload a <code>.ydk</code>{' '}
-                    file or paste raw YDK text here, and once the deck is loaded
-                    the app switches to a separate analysis page for one-card
-                    starter math.
-                  </p>
-                </div>
-              </section>
-
               <div className="landing-grid">
                 <LandingDeckInput inputId={inputId} model={model} />
                 <div className="landing-right-rail">
@@ -458,10 +441,13 @@ function LandingDeckInput({
 }) {
   return (
     <section className="surface-panel deck-input-panel">
-      <div className="panel-header-row">
-        <div>
-          <p className="panel-kicker">Deck Import</p>
-          <h2>Bring in a YDK list.</h2>
+      <div className="panel-header-row deck-input-header">
+        <div className="deck-input-intro">
+          <p className="panel-kicker">Stage one</p>
+          <p className="deck-input-note">
+            Upload a <code>.ydk</code> file or paste raw deck text to open the
+            starter board immediately.
+          </p>
         </div>
         <input
           id={inputId}
@@ -479,31 +465,30 @@ function LandingDeckInput({
             event.target.value = ''
           }}
         />
-        <label className="primary-button" htmlFor={inputId}>
-          Upload .ydk
-        </label>
+        <div className="deck-input-actions">
+          <label className="primary-button" htmlFor={inputId}>
+            Upload .ydk
+          </label>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={model.isLoading}
+            onClick={model.loadSampleDeck}
+          >
+            Load sample deck
+          </button>
+          <button
+            className="secondary-button ghost"
+            type="button"
+            disabled={model.isLoading}
+            onClick={model.clearWorkspace}
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       <ImportStatusBanner model={model} />
-
-      <div className="panel-action-row">
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={model.isLoading}
-          onClick={model.loadSampleDeck}
-        >
-          Load sample deck
-        </button>
-        <button
-          className="secondary-button ghost"
-          type="button"
-          disabled={model.isLoading}
-          onClick={model.clearWorkspace}
-        >
-          Clear
-        </button>
-      </div>
 
       <form
         className="deck-editor-form"
@@ -540,27 +525,51 @@ function LandingDeckInput({
 function ImportGuidePanel() {
   return (
     <section className="surface-panel guide-panel">
-      <p className="panel-kicker">How it works</p>
+      <div className="guide-panel-head">
+        <p className="panel-kicker">How it works</p>
+        <p className="guide-panel-note">
+          Everything you need for stage one is here. Import first, then tune
+          starters on the next screen.
+        </p>
+      </div>
       <div className="guide-list">
         <article>
-          <strong>1. Import deck</strong>
+          <strong>Import</strong>
           <p>
             Upload a simulator-exported YDK file or paste the raw deck text.
           </p>
         </article>
         <article>
-          <strong>2. Enter starters</strong>
+          <strong>Starter count</strong>
           <p>
             Enter the total number of one-card starter copies in the main deck.
           </p>
         </article>
         <article>
-          <strong>3. Review output</strong>
+          <strong>Output</strong>
           <p>
             The app shows the exact opening-hand rate for finding at least one.
           </p>
         </article>
       </div>
+
+      <dl className="guide-facts">
+        <div>
+          <dt>Accepted input</dt>
+          <dd>.ydk upload or raw text paste</dd>
+        </div>
+        <div>
+          <dt>Starter logic</dt>
+          <dd>Main deck only</dd>
+        </div>
+        <div>
+          <dt>Current limits</dt>
+          <dd>
+            {MAX_DECK_CARD_LINES} lines · {MAX_UNIQUE_CARD_IDS} unique ·{' '}
+            {formatByteLimit(MAX_UPLOAD_BYTES)}
+          </dd>
+        </div>
+      </dl>
     </section>
   )
 }
