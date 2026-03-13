@@ -34,6 +34,7 @@ export type DeckCardLookup =
     }
 
 const CARD_IMAGE_BASE = 'https://cdn.233.momobako.com/ygopro/pics'
+export const DEFAULT_CARD_FETCH_CONCURRENCY = 8
 type FetchDeckCardsOptions = {
   concurrency?: number
   signal?: AbortSignal
@@ -75,7 +76,10 @@ export async function fetchDeckCards(
 
   const { getDeckCards } = await import('./ygocdb-cache')
   const lookups = (await getDeckCards({
-    data: { cardIds: uniqueIds },
+    data: {
+      cardIds: uniqueIds,
+      concurrency: options.concurrency ?? DEFAULT_CARD_FETCH_CONCURRENCY,
+    },
     signal: options.signal,
   })) as DeckCardLookupRecord
 
