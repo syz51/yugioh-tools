@@ -41,7 +41,11 @@ body.app-shell {
   color: var(--text);
   background:
     radial-gradient(circle at top, rgba(216, 171, 109, 0.11), transparent 22%),
-    radial-gradient(circle at 15% 85%, rgba(125, 54, 64, 0.16), transparent 22%),
+    radial-gradient(
+      circle at 15% 85%,
+      rgba(125, 54, 64, 0.16),
+      transparent 22%
+    ),
     linear-gradient(180deg, #181115 0%, var(--bg) 55%, var(--bg-strong) 100%);
   font-family: var(--headline-font);
   -webkit-font-smoothing: antialiased;
@@ -174,7 +178,12 @@ code {
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 20%),
-    linear-gradient(90deg, transparent 0, transparent calc(100% - 1px), rgba(255, 255, 255, 0.03) calc(100% - 1px)),
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent calc(100% - 1px),
+      rgba(255, 255, 255, 0.03) calc(100% - 1px)
+    ),
     var(--surface);
   background-size:
     auto,
@@ -197,14 +206,22 @@ code {
 
 .landing-stage {
   background:
-    radial-gradient(circle at top right, rgba(216, 171, 109, 0.08), transparent 22%),
+    radial-gradient(
+      circle at top right,
+      rgba(216, 171, 109, 0.08),
+      transparent 22%
+    ),
     transparent;
 }
 
 .config-stage {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 24%),
-    radial-gradient(circle at top left, rgba(125, 54, 64, 0.12), transparent 18%),
+    radial-gradient(
+      circle at top left,
+      rgba(125, 54, 64, 0.12),
+      transparent 18%
+    ),
     rgba(10, 7, 9, 0.28);
 }
 
@@ -213,8 +230,12 @@ code {
   inset: 0;
   pointer-events: none;
   z-index: 5;
-  background:
-    linear-gradient(90deg, rgba(17, 12, 15, 0.96), rgba(216, 171, 109, 0.2) 42%, rgba(17, 12, 15, 0.96));
+  background: linear-gradient(
+    90deg,
+    rgba(17, 12, 15, 0.96),
+    rgba(216, 171, 109, 0.2) 42%,
+    rgba(17, 12, 15, 0.96)
+  );
 }
 
 .landing-hero {
@@ -507,7 +528,12 @@ code {
   position: absolute;
   inset: auto 0 0 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(216, 171, 109, 0.35), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(216, 171, 109, 0.35),
+    transparent
+  );
 }
 
 .analysis-toolbar-title h2 {
