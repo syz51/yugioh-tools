@@ -124,11 +124,6 @@ export function StarterRateExperiencePage() {
           <span className="experience-brand-mark" aria-hidden="true" />
           <span>Yu-Gi-Oh Starter Rate</span>
         </Link>
-        <div className="experience-topbar-links">
-          <Link className="experience-topbar-link" to="/about">
-            About
-          </Link>
-        </div>
       </section>
 
       <section className="experience-frame">
@@ -603,10 +598,6 @@ function ConfigHero({ model }: { model: WorkbenchModel }) {
           <strong>{model.mainDeckSize}</strong>
         </div>
         <div>
-          <span>Starter copies</span>
-          <strong>{model.starterCopies}</strong>
-        </div>
-        <div>
           <span>Source</span>
           <strong>
             {model.deckView?.sourceName ?? model.sourceName ?? 'Pasted'}
@@ -679,11 +670,6 @@ function StarterCountPanel({ model }: { model: WorkbenchModel }) {
 
 function RateBoard({ model }: { model: WorkbenchModel }) {
   const startRate = model.combinedStarterResult?.openingHandProbability ?? 0
-  const distribution = getStarterOpeningDistribution(
-    model.mainDeckSize,
-    model.starterCopies,
-    model.combinedStarterResult?.openingHandSize ?? 5,
-  )
 
   return (
     <section className="surface-panel rate-panel">
@@ -693,23 +679,8 @@ function RateBoard({ model }: { model: WorkbenchModel }) {
         <span>
           {model.starterCopies === 0
             ? 'Enter a starter count above to calculate.'
-            : 'Breakdown of successful hands by how many starters they open.'}
+            : 'This pass only calculates the total one-card starter rate. Recipe-level splits for 2-card and 3-card starters need combo rules first.'}
         </span>
-      </div>
-
-      <div className="rate-grid">
-        <article>
-          <p>1 starter</p>
-          <strong>{formatPercent(distribution.exactlyOne)}</strong>
-        </article>
-        <article>
-          <p>2 starters</p>
-          <strong>{formatPercent(distribution.exactlyTwo)}</strong>
-        </article>
-        <article>
-          <p>3+ starters</p>
-          <strong>{formatPercent(distribution.threeOrMore)}</strong>
-        </article>
       </div>
     </section>
   )
@@ -836,21 +807,6 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                 </button>
               )
             })}
-          </div>
-
-          <div className="deck-stage-meta deck-stage-meta-secondary">
-            <div>
-              <span>Showing</span>
-              <strong>{activeDeckSection.label}</strong>
-            </div>
-            <div>
-              <span>Total cards</span>
-              <strong>{activeDeckSection.totalCards}</strong>
-            </div>
-            <div>
-              <span>Unique entries</span>
-              <strong>{activeDeckSection.entries.length}</strong>
-            </div>
           </div>
 
           <div className="deck-view-toolbar">
@@ -1151,68 +1107,6 @@ function formatPercent(value: number) {
     style: 'percent',
     maximumFractionDigits: 1,
   }).format(value)
-}
-
-function getStarterOpeningDistribution(
-  deckSize: number,
-  starterCopies: number,
-  openingHandSize: number,
-) {
-  if (
-    deckSize <= 0 ||
-    starterCopies <= 0 ||
-    openingHandSize <= 0 ||
-    starterCopies > deckSize
-  ) {
-    return {
-      exactlyOne: 0,
-      exactlyTwo: 0,
-      threeOrMore: 0,
-    }
-  }
-
-  const totalHands = choose(deckSize, openingHandSize)
-  if (totalHands === 0) {
-    return {
-      exactlyOne: 0,
-      exactlyTwo: 0,
-      threeOrMore: 0,
-    }
-  }
-
-  const probabilityFor = (hits: number) => {
-    if (hits < 0 || hits > openingHandSize || hits > starterCopies) {
-      return 0
-    }
-
-    const missesNeeded = openingHandSize - hits
-    const nonStarterCopies = deckSize - starterCopies
-    if (missesNeeded > nonStarterCopies) {
-      return 0
-    }
-
-    return (
-      (choose(starterCopies, hits) * choose(nonStarterCopies, missesNeeded)) /
-      totalHands
-    )
-  }
-
-  const exactlyOne = probabilityFor(1)
-  const exactlyTwo = probabilityFor(2)
-  let threeOrMore = 0
-  for (
-    let hits = 3;
-    hits <= Math.min(openingHandSize, starterCopies);
-    hits += 1
-  ) {
-    threeOrMore += probabilityFor(hits)
-  }
-
-  return {
-    exactlyOne,
-    exactlyTwo,
-    threeOrMore,
-  }
 }
 
 function isAbortError(error: unknown) {
