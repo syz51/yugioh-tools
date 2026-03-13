@@ -11,8 +11,14 @@ export const Route = createFileRoute('/api/ygocdb/sync')({
 })
 
 async function handleSyncRequest() {
+  return runSyncRequest()
+}
+
+export async function runSyncRequest(
+  syncCards: typeof syncAllCardsFromYgocdb = syncAllCardsFromYgocdb,
+) {
   try {
-    const result = await syncAllCardsFromYgocdb()
+    const result = await syncCards()
     return jsonResponse(result)
   } catch (error) {
     const message =

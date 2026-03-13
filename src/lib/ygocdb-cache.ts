@@ -44,6 +44,10 @@ export const getDeckCards = createServerFn({ method: 'POST' })
 
     const lookups: DeckCardLookupRecord = Object.create(null)
     for (const row of cachedRows) {
+      if (lookups[row.cardId] != null) {
+        continue
+      }
+
       lookups[row.cardId] = {
         id: row.cardId,
         status: 'ready',
@@ -66,6 +70,7 @@ export const getDeckCards = createServerFn({ method: 'POST' })
       lookup.status === 'ready'
         ? [
             {
+              cacheKey: cardId,
               cardId,
               payload: lookup.card,
               cachedAt: new Date(),
