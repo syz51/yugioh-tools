@@ -12,6 +12,7 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "baseUrl": ".",
+    "allowJs": true,
     "paths": {
       "#/*": ["./src/*"],
       "@/*": ["./src/*"]
