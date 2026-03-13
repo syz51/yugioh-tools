@@ -216,7 +216,7 @@ function DeckViewerPage() {
           <p>
             Upload a <code>.ydk</code> file or paste raw YDK text. The app
             parses your main, extra, and side decks, then loads each unique card
-            directly from YGOCDB.
+            from the local cache before falling back to YGOCDB.
           </p>
           <p className="privacy-note">
             Card metadata and card art are requested from YGOCDB and its image
@@ -329,7 +329,7 @@ function DeckViewerPage() {
               </p>
             ) : isLoading ? (
               <p className="status-message">
-                Fetching card data from YGOCDB...
+                Looking up card data...
               </p>
             ) : deckView ? (
               <p className="status-message">

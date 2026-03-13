@@ -33,16 +33,14 @@ export type DeckCardLookup =
       message: string
     }
 
-const CARD_API_BASE = 'https://ygocdb.com/api/v0/card'
 const CARD_IMAGE_BASE = 'https://cdn.233.momobako.com/ygopro/pics'
-const DEFAULT_FETCH_CONCURRENCY = 8
-
-const cardCache = new Map<string, DeckCardLookup>()
-
 type FetchDeckCardsOptions = {
   concurrency?: number
   signal?: AbortSignal
 }
+const MISSING_CARD_MESSAGE = 'Card data could not be loaded.'
+
+type DeckCardLookupRecord = Partial<Record<string, DeckCardLookup>>
 
 export function getCardImageUrl(cardId: string) {
   return `${CARD_IMAGE_BASE}/${cardId}.jpg`
@@ -71,85 +69,24 @@ export async function fetchDeckCards(
   options: FetchDeckCardsOptions = {},
 ) {
   const uniqueIds = [...new Set(cardIds)]
-  const lookups = new Map<string, DeckCardLookup>()
-
   if (uniqueIds.length === 0) {
-    return lookups
+    return new Map<string, DeckCardLookup>()
   }
 
-  const signal = options.signal
-  const concurrency = Math.max(
-    1,
-    Math.min(
-      options.concurrency ?? DEFAULT_FETCH_CONCURRENCY,
-      uniqueIds.length,
-    ),
+  const { getDeckCards } = await import('./ygocdb-cache')
+  const lookups = (await getDeckCards({
+    data: { cardIds: uniqueIds },
+    signal: options.signal,
+  })) as DeckCardLookupRecord
+
+  return new Map(
+    uniqueIds.map((cardId) => [
+      cardId,
+      lookups[cardId] ?? {
+        id: cardId,
+        status: 'missing' as const,
+        message: MISSING_CARD_MESSAGE,
+      },
+    ]),
   )
-  let nextIndex = 0
-
-  await Promise.all(
-    Array.from({ length: concurrency }, async () => {
-      while (nextIndex < uniqueIds.length) {
-        signal?.throwIfAborted()
-
-        const currentIndex = nextIndex
-        nextIndex += 1
-        const cardId = uniqueIds[currentIndex]
-        if (!cardId) {
-          continue
-        }
-
-        lookups.set(cardId, await fetchDeckCard(cardId, signal))
-      }
-    }),
-  )
-
-  return lookups
-}
-
-async function fetchDeckCard(
-  cardId: string,
-  signal?: AbortSignal,
-): Promise<DeckCardLookup> {
-  const cached = cardCache.get(cardId)
-  if (cached) {
-    return cached
-  }
-
-  const result = await loadDeckCard(cardId, signal)
-  cardCache.set(cardId, result)
-  return result
-}
-
-async function loadDeckCard(
-  cardId: string,
-  signal?: AbortSignal,
-): Promise<DeckCardLookup> {
-  const response = await fetch(`${CARD_API_BASE}/${cardId}?show=all`, {
-    signal,
-  })
-
-  if (!response.ok) {
-    return {
-      id: cardId,
-      status: 'missing',
-      message: `YGOCDB returned ${response.status} for card ${cardId}.`,
-    }
-  }
-
-  const payload = (await response.json()) as Partial<YgocdbCard>
-
-  if (payload.id == null || payload.text == null || payload.data == null) {
-    return {
-      id: cardId,
-      status: 'missing',
-      message: `YGOCDB returned an incomplete record for card ${cardId}.`,
-    }
-  }
-
-  return {
-    id: cardId,
-    status: 'ready',
-    card: payload as YgocdbCard,
-  }
 }
