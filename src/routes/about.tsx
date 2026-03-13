@@ -26,7 +26,7 @@ function About() {
           <p>
             The parser reads the standard <code>#main</code>,{' '}
             <code>#extra</code>, and <code>!side</code> sections, then resolves
-            card metadata with the{' '}
+            card metadata from a Postgres cache, falling back to the{' '}
             <a href="https://ygocdb.com/api" target="_blank" rel="noreferrer">
               YGOCDB API
             </a>
