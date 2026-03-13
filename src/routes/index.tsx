@@ -10,6 +10,7 @@ import {
 } from '../lib/ydk'
 import type { DeckCardLookup } from '../lib/ygocdb'
 import {
+  DEFAULT_CARD_FETCH_CONCURRENCY,
   fetchDeckCards,
   getCardImageUrl,
   getPreferredCardName,
@@ -56,8 +57,6 @@ const SECTION_LABELS: Record<DeckSection, string> = {
 const MAX_UPLOAD_BYTES = 256 * 1024
 const MAX_DECK_CARD_LINES = 256
 const MAX_UNIQUE_CARD_IDS = 128
-const CARD_FETCH_CONCURRENCY = 8
-
 const SAMPLE_YDK = `#created by YGO Tools
 #main
 89631139
@@ -134,7 +133,7 @@ function DeckViewerPage() {
 
     try {
       const cardLookup = await fetchDeckCards(getDeckCardIds(parsed), {
-        concurrency: CARD_FETCH_CONCURRENCY,
+        concurrency: DEFAULT_CARD_FETCH_CONCURRENCY,
         signal: abortController.signal,
       })
 
