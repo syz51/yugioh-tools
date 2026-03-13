@@ -328,9 +328,7 @@ function DeckViewerPage() {
                 {errorMessage}
               </p>
             ) : isLoading ? (
-              <p className="status-message">
-                Looking up card data...
-              </p>
+              <p className="status-message">Looking up card data...</p>
             ) : deckView ? (
               <p className="status-message">
                 Showing {getTotalCards(deckView)} cards from{' '}

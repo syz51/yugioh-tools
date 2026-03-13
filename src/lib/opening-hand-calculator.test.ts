@@ -144,7 +144,11 @@ function recurseBruteForce(
 
     const nextHand = [...hand]
     let removed = 0
-    for (let index = nextHand.length - 1; index >= 0 && removed < cardsNeeded; index -= 1) {
+    for (
+      let index = nextHand.length - 1;
+      index >= 0 && removed < cardsNeeded;
+      index -= 1
+    ) {
       if (nextHand[index]?.startsWith(`${pool.id}:`)) {
         nextHand.splice(index, 1)
         removed += 1
@@ -154,7 +158,10 @@ function recurseBruteForce(
     const nextActivations = new Map(activationsRemaining)
     nextActivations.set(pool.id, (nextActivations.get(pool.id) ?? 0) - 1)
 
-    const drawCount = Math.min(pool.drawEffect.drawsPerActivation, remainingDeck.length)
+    const drawCount = Math.min(
+      pool.drawEffect.drawsPerActivation,
+      remainingDeck.length,
+    )
     const draws = chooseActualCards(remainingDeck, drawCount)
 
     let expected = 0
@@ -178,7 +185,9 @@ function recurseBruteForce(
 
 function actualHandSatisfiesRecipe(hand: string[], recipe: StarterRecipe) {
   return recipe.requirements.every((requirement) => {
-    const copies = hand.filter((card) => card.startsWith(`${requirement.poolId}:`)).length
+    const copies = hand.filter((card) =>
+      card.startsWith(`${requirement.poolId}:`),
+    ).length
     return copies >= requirement.count
   })
 }

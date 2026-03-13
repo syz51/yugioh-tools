@@ -45,7 +45,8 @@ export const getDeckCards = createServerFn({ method: 'POST' })
 
     const fetchedLookups = await Promise.all(
       missingIds.map(
-        async (cardId) => [cardId, await loadDeckCardFromYgocdb(cardId)] as const,
+        async (cardId) =>
+          [cardId, await loadDeckCardFromYgocdb(cardId)] as const,
       ),
     )
 
