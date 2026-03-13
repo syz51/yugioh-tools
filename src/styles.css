@@ -336,6 +336,247 @@ a {
   background: color-mix(in oklab, var(--header-bg) 84%, transparent 16%);
 }
 
+.calc-layout {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+
+.calc-main,
+.calc-sidebar {
+  display: grid;
+  gap: 20px;
+}
+
+.calc-panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--surface-strong) 92%, white 8%);
+  padding: 22px;
+}
+
+.calc-title {
+  margin: 0 0 10px;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: var(--sea-ink);
+}
+
+.calc-copy {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--sea-ink-soft);
+  line-height: 1.65;
+}
+
+.calc-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.calc-section-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--sea-ink);
+}
+
+.calc-section-head p {
+  margin: 6px 0 0;
+  max-width: 56ch;
+  color: var(--sea-ink-soft);
+  line-height: 1.5;
+}
+
+.calc-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.calc-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.calc-field {
+  display: grid;
+  gap: 7px;
+}
+
+.calc-field span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--sea-ink);
+}
+
+.calc-field-small {
+  min-width: 110px;
+}
+
+.calc-input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid color-mix(in oklab, var(--line) 90%, var(--sea-ink) 10%);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--surface-strong) 88%, white 12%);
+  color: var(--sea-ink);
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.calc-input:focus {
+  outline: 2px solid color-mix(in oklab, var(--lagoon-deep) 32%, transparent);
+  outline-offset: 1px;
+}
+
+.calc-button {
+  align-self: start;
+  min-height: 40px;
+  border: 1px solid color-mix(in oklab, var(--lagoon-deep) 26%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--lagoon) 16%, white 84%);
+  color: var(--sea-ink);
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.calc-button:hover {
+  background: color-mix(in oklab, var(--lagoon) 24%, white 76%);
+}
+
+.calc-button-subtle {
+  border-color: var(--line);
+  background: transparent;
+}
+
+.calc-button-subtle:hover {
+  background: color-mix(in oklab, var(--surface) 74%, white 26%);
+}
+
+.calc-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.calc-row {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.calc-row-dense {
+  grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(110px, 0.6fr)) auto;
+}
+
+.calc-table-wrap {
+  overflow-x: auto;
+}
+
+.calc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.calc-table th,
+.calc-table td {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.calc-table thead th {
+  border-top: 0;
+  padding-top: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--sea-ink-soft);
+}
+
+.calc-table tbody td {
+  padding-right: 10px;
+}
+
+.calc-table-action {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.calc-result-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.calc-stat {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--surface) 70%, white 30%);
+  padding: 14px;
+}
+
+.calc-stat span {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sea-ink-soft);
+}
+
+.calc-stat strong {
+  font-size: 1.5rem;
+  line-height: 1.05;
+  color: var(--sea-ink);
+}
+
+.calc-notes {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--sea-ink-soft);
+  line-height: 1.6;
+}
+
+.calc-error,
+.calc-empty {
+  margin: 0;
+  color: var(--sea-ink-soft);
+  line-height: 1.6;
+}
+
+.calc-error {
+  color: #9c3d2a;
+}
+
+@media (min-width: 980px) {
+  .calc-layout {
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
+  }
+
+  .calc-row {
+    grid-template-columns: minmax(0, 1.7fr) minmax(120px, 0.5fr) auto;
+  }
+
+  .calc-result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 979px) {
+  .calc-section-head {
+    flex-direction: column;
+  }
+
+  .calc-row-dense {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

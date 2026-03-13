@@ -8,15 +8,26 @@ function About() {
   return (
     <main className="page-wrap px-4 py-12">
       <section className="island-shell rounded-2xl p-6 sm:p-8">
-        <p className="island-kicker mb-2">About</p>
-        <h1 className="display-title mb-3 text-4xl font-bold text-[var(--sea-ink)] sm:text-5xl">
-          A small starter with room to grow.
+        <h1 className="mb-3 text-3xl font-semibold text-[var(--sea-ink)] sm:text-4xl">
+          About this calculator
         </h1>
-        <p className="m-0 max-w-3xl text-base leading-8 text-[var(--sea-ink-soft)]">
-          TanStack Start gives you type-safe routing, server functions, and
-          modern SSR defaults. Use this as a clean foundation, then layer in
-          your own routes, styling, and add-ons.
-        </p>
+        <div className="space-y-4 text-base leading-8 text-[var(--sea-ink-soft)]">
+          <p className="m-0">
+            The home page models an opening hand as disjoint card pools plus
+            unnamed filler. That lets the app calculate exact multivariate
+            hypergeometric odds instead of relying on simulation.
+          </p>
+          <p className="m-0">
+            One-card starters are handled automatically. Multi-card lines are
+            described as recipes over your combo pools, and optional draw cards
+            can extend the opener before the final success check is made.
+          </p>
+          <p className="m-0">
+            Keep each real card in exactly one pool if you want the result to
+            stay exact. If two starter lines share the same card, model that
+            card once and reference the same pool in both recipes.
+          </p>
+        </div>
       </section>
     </main>
   )
