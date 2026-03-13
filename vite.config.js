@@ -1,14 +1,13 @@
 import { defineConfig } from 'vite'
 import netlify from '@netlify/vite-plugin-tanstack-start'
 import { devtools } from '@tanstack/devtools-vite'
-
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react'
 
-const config = defineConfig({
+const config = defineConfig(async () => ({
   resolve: {
     tsconfigPaths: true,
   },
@@ -18,8 +17,8 @@ const config = defineConfig({
     tanstackStart(),
     netlify(),
     viteReact(),
-    babel({ presets: [reactCompilerPreset()] }),
+    await babel({ presets: [reactCompilerPreset()] }),
   ],
-})
+}))
 
 export default config

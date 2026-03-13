@@ -1,10 +1,34 @@
-import { jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core'
 import type { YgocdbCard } from '../lib/ygocdb'
 
-export const cardCache = pgTable('card_cache', {
-  cardId: text('card_id').primaryKey(),
-  payload: jsonb('payload').$type<YgocdbCard>().notNull(),
-  cachedAt: timestamp('cached_at', { withTimezone: true })
+export const cardCache = pgTable(
+  'card_cache',
+  {
+    cacheKey: text('cache_key').primaryKey(),
+    cardId: text('card_id').notNull(),
+    payload: jsonb('payload').$type<YgocdbCard>().notNull(),
+    cachedAt: timestamp('cached_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index('card_cache_card_id_idx').on(table.cardId)],
+)
+
+export const ygocdbSyncState = pgTable('ygocdb_sync_state', {
+  source: text('source').primaryKey(),
+  md5: text('md5').notNull(),
+  rowCount: integer('row_count').notNull(),
+  checkedAt: timestamp('checked_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  syncedAt: timestamp('synced_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
 })

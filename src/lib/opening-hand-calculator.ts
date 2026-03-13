@@ -46,8 +46,8 @@ export interface OpeningHandCalculationResult {
   recipeProbabilities: StarterRecipeProbability[]
 }
 
-interface PreparedPool extends CardPool {
-  drawEffect?: Required<DrawEffect>
+interface PreparedPool extends Omit<CardPool, 'drawEffect'> {
+  drawEffect: Required<DrawEffect> | null
 }
 
 interface PreparedRecipe {
@@ -186,7 +186,7 @@ function prepareCalculation(input: OpeningHandCalculationInput): PreparedState {
       )
     }
 
-    let drawEffect: Required<DrawEffect> | undefined
+    let drawEffect: Required<DrawEffect> | null = null
     if (pool.drawEffect) {
       const cardsNeededToActivate = pool.drawEffect.cardsNeededToActivate ?? 1
       const drawsPerActivation = pool.drawEffect.drawsPerActivation
