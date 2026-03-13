@@ -28,15 +28,19 @@ describe('mapWithConcurrencyLimit', () => {
     let activeWorkers = 0
     let maxActiveWorkers = 0
 
-    const results = await mapWithConcurrencyLimit([1, 2, 3], 0, async (value) => {
-      activeWorkers += 1
-      maxActiveWorkers = Math.max(maxActiveWorkers, activeWorkers)
+    const results = await mapWithConcurrencyLimit(
+      [1, 2, 3],
+      0,
+      async (value) => {
+        activeWorkers += 1
+        maxActiveWorkers = Math.max(maxActiveWorkers, activeWorkers)
 
-      await wait(5)
+        await wait(5)
 
-      activeWorkers -= 1
-      return value * 2
-    })
+        activeWorkers -= 1
+        return value * 2
+      },
+    )
 
     expect(results).toEqual([2, 4, 6])
     expect(maxActiveWorkers).toBe(1)

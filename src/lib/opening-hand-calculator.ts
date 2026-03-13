@@ -47,7 +47,7 @@ export interface OpeningHandCalculationResult {
 }
 
 interface PreparedPool extends CardPool {
-  drawEffect: Required<DrawEffect> | null
+  drawEffect?: Required<DrawEffect>
 }
 
 interface PreparedRecipe {
@@ -75,7 +75,9 @@ export function calculateOpeningHandProbabilities(
 ): OpeningHandCalculationResult {
   const prepared = prepareCalculation(input)
   const allCategoryCounts = [...prepared.deckCounts, prepared.fillerCards]
-  const activationCaps = prepared.pools.map((pool) => pool.drawEffect?.maxActivations ?? 0)
+  const activationCaps = prepared.pools.map(
+    (pool) => pool.drawEffect?.maxActivations ?? 0,
+  )
   const outcomeCache = new Map<string, DrawOutcome[]>()
   const stateCache = new Map<string, number>()
 
@@ -137,12 +139,15 @@ export function calculateOpeningHandProbabilities(
         stateCache,
         recipe.id,
       )
-      recipeProbability.resolvedProbability += outcome.probability * resolvedRecipe
+      recipeProbability.resolvedProbability +=
+        outcome.probability * resolvedRecipe
     }
   }
 
   return {
-    deckSize: prepared.deckCounts.reduce((sum, count) => sum + count, 0) + prepared.fillerCards,
+    deckSize:
+      prepared.deckCounts.reduce((sum, count) => sum + count, 0) +
+      prepared.fillerCards,
     openingHandSize: prepared.openingHandSize,
     fillerCards: prepared.fillerCards,
     openingHandProbability,
@@ -152,9 +157,7 @@ export function calculateOpeningHandProbabilities(
   }
 }
 
-function prepareCalculation(
-  input: OpeningHandCalculationInput,
-): PreparedState {
+function prepareCalculation(input: OpeningHandCalculationInput): PreparedState {
   if (!Number.isInteger(input.deckSize) || input.deckSize <= 0) {
     throw new Error('Deck size must be a positive integer.')
   }
@@ -178,20 +181,27 @@ function prepareCalculation(
     seenPoolIds.add(pool.id)
 
     if (!Number.isInteger(pool.copies) || pool.copies < 0) {
-      throw new Error(`Pool "${pool.label}" must use a non-negative integer copy count.`)
+      throw new Error(
+        `Pool "${pool.label}" must use a non-negative integer copy count.`,
+      )
     }
 
-    let drawEffect: Required<DrawEffect> | null = null
+    let drawEffect: Required<DrawEffect> | undefined
     if (pool.drawEffect) {
       const cardsNeededToActivate = pool.drawEffect.cardsNeededToActivate ?? 1
       const drawsPerActivation = pool.drawEffect.drawsPerActivation
       const maxActivations = pool.drawEffect.maxActivations ?? 1
 
-      if (!Number.isInteger(cardsNeededToActivate) || cardsNeededToActivate <= 0) {
+      if (
+        !Number.isInteger(cardsNeededToActivate) ||
+        cardsNeededToActivate <= 0
+      ) {
         throw new Error(`Pool "${pool.label}" has an invalid activation cost.`)
       }
       if (!Number.isInteger(drawsPerActivation) || drawsPerActivation <= 0) {
-        throw new Error(`Pool "${pool.label}" must draw at least one card per activation.`)
+        throw new Error(
+          `Pool "${pool.label}" must draw at least one card per activation.`,
+        )
       }
       if (!Number.isInteger(maxActivations) || maxActivations <= 0) {
         throw new Error(`Pool "${pool.label}" needs a positive activation cap.`)
@@ -212,7 +222,9 @@ function prepareCalculation(
 
   const totalPoolCopies = pools.reduce((sum, pool) => sum + pool.copies, 0)
   if (totalPoolCopies > input.deckSize) {
-    throw new Error('Card pools cannot add up to more cards than the deck contains.')
+    throw new Error(
+      'Card pools cannot add up to more cards than the deck contains.',
+    )
   }
 
   const poolIndexById = new Map(pools.map((pool, index) => [pool.id, index]))
@@ -221,7 +233,9 @@ function prepareCalculation(
 
     for (const requirement of recipe.requirements) {
       if (!Number.isInteger(requirement.count) || requirement.count < 0) {
-        throw new Error(`Recipe "${recipe.label}" has an invalid requirement count.`)
+        throw new Error(
+          `Recipe "${recipe.label}" has an invalid requirement count.`,
+        )
       }
       if (requirement.count === 0) {
         continue
@@ -248,7 +262,9 @@ function prepareCalculation(
     )
 
     if (normalizedRequirements.length === 0) {
-      throw new Error(`Recipe "${recipe.label}" must require at least one pool.`)
+      throw new Error(
+        `Recipe "${recipe.label}" must require at least one pool.`,
+      )
     }
 
     return {
@@ -296,7 +312,9 @@ function resolveStateProbability(
       ? prepared.recipes
       : prepared.recipes.filter((recipe) => recipe.id === targetRecipeId)
 
-  if (relevantRecipes.some((recipe) => handSatisfiesRecipe(handCounts, recipe))) {
+  if (
+    relevantRecipes.some((recipe) => handSatisfiesRecipe(handCounts, recipe))
+  ) {
     stateCache.set(cacheKey, 1)
     return 1
   }
@@ -321,12 +339,22 @@ function resolveStateProbability(
     const nextActivationsRemaining = [...activationsRemaining]
     nextActivationsRemaining[poolIndex] -= 1
 
-    const remainingDeckTotal = remainingDeckCounts.reduce((sum, count) => sum + count, 0)
-    const drawCount = Math.min(effect.drawsPerActivation, remainingDeckTotal + fillerRemaining)
+    const remainingDeckTotal = remainingDeckCounts.reduce(
+      (sum, count) => sum + count,
+      0,
+    )
+    const drawCount = Math.min(
+      effect.drawsPerActivation,
+      remainingDeckTotal + fillerRemaining,
+    )
     const categories = [...remainingDeckCounts, fillerRemaining]
 
     let expectedProbability = 0
-    for (const outcome of enumerateDrawOutcomes(categories, drawCount, outcomeCache)) {
+    for (const outcome of enumerateDrawOutcomes(
+      categories,
+      drawCount,
+      outcomeCache,
+    )) {
       const drawnPoolCounts = outcome.drawn.slice(0, prepared.pools.length)
       const nextRemainingDeckCounts = remainingDeckCounts.map(
         (count, index) => count - (drawnPoolCounts[index] ?? 0),
@@ -358,7 +386,8 @@ function resolveStateProbability(
 
 function handSatisfiesRecipe(handCounts: number[], recipe: PreparedRecipe) {
   return recipe.requirements.every(
-    (requirement) => (handCounts[requirement.poolIndex] ?? 0) >= requirement.count,
+    (requirement) =>
+      (handCounts[requirement.poolIndex] ?? 0) >= requirement.count,
   )
 }
 
@@ -403,7 +432,8 @@ function enumerateDrawOutcomes(
           ? normalizedDrawCount === 0
             ? 1
             : 0
-          : (combinationsProduct * choose(counts[index] ?? 0, remainingToDraw)) /
+          : (combinationsProduct *
+              choose(counts[index] ?? 0, remainingToDraw)) /
             denominator
 
       results.push({
@@ -414,10 +444,17 @@ function enumerateDrawOutcomes(
     }
 
     const cardsRemainingAfterThis = suffixTotals[index + 1] ?? 0
-    const minimumFromCurrent = Math.max(0, remainingToDraw - cardsRemainingAfterThis)
+    const minimumFromCurrent = Math.max(
+      0,
+      remainingToDraw - cardsRemainingAfterThis,
+    )
     const maximumFromCurrent = Math.min(counts[index] ?? 0, remainingToDraw)
 
-    for (let taken = minimumFromCurrent; taken <= maximumFromCurrent; taken += 1) {
+    for (
+      let taken = minimumFromCurrent;
+      taken <= maximumFromCurrent;
+      taken += 1
+    ) {
       visit(
         index + 1,
         remainingToDraw - taken,

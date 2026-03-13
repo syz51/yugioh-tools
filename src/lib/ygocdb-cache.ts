@@ -9,7 +9,12 @@ const MAX_CARD_FETCH_CONCURRENCY = 16
 
 const lookupDeckCardsInput = z.object({
   cardIds: z.array(z.string().trim().min(1)).max(500),
-  concurrency: z.number().int().min(1).max(MAX_CARD_FETCH_CONCURRENCY).optional(),
+  concurrency: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_CARD_FETCH_CONCURRENCY)
+    .optional(),
 })
 
 export const getDeckCards = createServerFn({ method: 'POST' })

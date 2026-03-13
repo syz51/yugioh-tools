@@ -1,15 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import {
-  startTransition,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from 'react'
-import {
-  calculateOpeningHandProbabilities,
-} from '../lib/opening-hand-calculator'
+import { startTransition, useEffect, useId, useRef, useState } from 'react'
+import { calculateOpeningHandProbabilities } from '../lib/opening-hand-calculator'
 import {
   collapseDeckSection,
   getDeckCardCount,
@@ -52,6 +44,8 @@ type DeckView = {
 }
 
 type WorkbenchModel = ReturnType<typeof useDeckWorkbench>
+type DeckSortKey = 'name' | 'copies' | 'id' | 'details'
+type DeckViewMode = 'table' | 'compact-main'
 
 const SECTION_ORDER: DeckSection[] = ['main', 'extra', 'side']
 
@@ -144,49 +138,45 @@ export function StarterRateExperiencePage() {
               key="landing"
               className="experience-stage landing-stage"
               initial={
-                shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 22, scale: 0.985 }
+                shouldReduceMotion
+                  ? { opacity: 1 }
+                  : { opacity: 0, y: 22, scale: 0.985 }
               }
               animate={
-                shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }
+                shouldReduceMotion
+                  ? { opacity: 1 }
+                  : { opacity: 1, y: 0, scale: 1 }
               }
               exit={
-                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -18, scale: 1.01 }
+                shouldReduceMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, y: -18, scale: 1.01 }
               }
-              transition={{ duration: shouldReduceMotion ? 0.12 : 0.42, ease: 'easeOut' }}
+              transition={{
+                duration: shouldReduceMotion ? 0.12 : 0.42,
+                ease: 'easeOut',
+              }}
             >
               <section className="landing-hero">
                 <div className="landing-copy">
-                  <p className="landing-kicker">Yu-Gi-Oh starter-rate playground</p>
-                  <h1>Load the deck first. Then move into the starter-rate board.</h1>
-                  <p className="landing-body">
-                    Stage one is only for import. Upload a <code>.ydk</code> file or
-                    paste raw YDK text here, and once the deck is loaded the app
-                    switches to a separate analysis page for one-card starter math.
+                  <p className="landing-kicker">
+                    Yu-Gi-Oh starter-rate playground
                   </p>
-                </div>
-
-                <div className="landing-side">
-                  <div className="landing-note-card">
-                    <p>Flow</p>
-                    <strong>1. Import deck</strong>
-                    <strong>2. Enter one-card starter count</strong>
-                    <strong>3. Review deck and live rate</strong>
-                  </div>
-                  <div className="landing-note-card">
-                    <p>Scope</p>
-                    <strong>Main-deck starters only for now</strong>
-                    <span>
-                      Extra deck and more advanced combo recipes can layer in later
-                      without changing the foundation.
-                    </span>
-                  </div>
+                  <h1>
+                    Load the deck first. Then move into the starter-rate board.
+                  </h1>
+                  <p className="landing-body">
+                    Stage one is only for import. Upload a <code>.ydk</code>{' '}
+                    file or paste raw YDK text here, and once the deck is loaded
+                    the app switches to a separate analysis page for one-card
+                    starter math.
+                  </p>
                 </div>
               </section>
 
               <div className="landing-grid">
                 <LandingDeckInput inputId={inputId} model={model} />
                 <div className="landing-right-rail">
-                  <StatusPanel model={model} />
                   <ImportGuidePanel />
                 </div>
               </div>
@@ -196,15 +186,24 @@ export function StarterRateExperiencePage() {
               key="config"
               className="experience-stage config-stage analysis-stage"
               initial={
-                shouldReduceMotion ? { opacity: 1 } : { opacity: 0, x: 48, scale: 0.985 }
+                shouldReduceMotion
+                  ? { opacity: 1 }
+                  : { opacity: 0, x: 48, scale: 0.985 }
               }
               animate={
-                shouldReduceMotion ? { opacity: 1 } : { opacity: 1, x: 0, scale: 1 }
+                shouldReduceMotion
+                  ? { opacity: 1 }
+                  : { opacity: 1, x: 0, scale: 1 }
               }
               exit={
-                shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: -48, scale: 1.01 }
+                shouldReduceMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, x: -48, scale: 1.01 }
               }
-              transition={{ duration: shouldReduceMotion ? 0.12 : 0.44, ease: 'easeOut' }}
+              transition={{
+                duration: shouldReduceMotion ? 0.12 : 0.44,
+                ease: 'easeOut',
+              }}
             >
               <ConfigHero model={model} />
               <div className="analysis-grid">
@@ -230,7 +229,11 @@ export function StarterRateExperiencePage() {
               className="stage-wipe"
               initial={{ clipPath: 'inset(0 100% 0 0)', opacity: 0.95 }}
               animate={{
-                clipPath: ['inset(0 100% 0 0)', 'inset(0 0% 0 0)', 'inset(0 0% 0 100%)'],
+                clipPath: [
+                  'inset(0 100% 0 0)',
+                  'inset(0 0% 0 0)',
+                  'inset(0 0% 0 100%)',
+                ],
                 opacity: [0.65, 0.95, 0],
               }}
               exit={{ opacity: 0 }}
@@ -260,7 +263,8 @@ function useDeckWorkbench() {
     }
   }, [])
 
-  const mainSection = deckView?.sections.find((section) => section.key === 'main') ?? null
+  const mainSection =
+    deckView?.sections.find((section) => section.key === 'main') ?? null
   const mainDeckEntries = mainSection?.entries ?? []
   const mainDeckSize = mainSection?.totalCards ?? 0
 
@@ -480,6 +484,8 @@ function LandingDeckInput({
         </label>
       </div>
 
+      <ImportStatusBanner model={model} />
+
       <div className="panel-action-row">
         <button
           className="secondary-button"
@@ -537,32 +543,31 @@ function ImportGuidePanel() {
       <p className="panel-kicker">How it works</p>
       <div className="guide-list">
         <article>
-          <strong>Stage one</strong>
-          <p>Upload a simulator-exported YDK file or paste the raw deck text.</p>
+          <strong>1. Import deck</strong>
+          <p>
+            Upload a simulator-exported YDK file or paste the raw deck text.
+          </p>
         </article>
         <article>
-          <strong>Stage two</strong>
-          <p>Enter the total number of one-card starter copies in the main deck.</p>
+          <strong>2. Enter starters</strong>
+          <p>
+            Enter the total number of one-card starter copies in the main deck.
+          </p>
         </article>
         <article>
-          <strong>Result</strong>
-          <p>The app shows the exact opening-hand rate for finding at least one.</p>
+          <strong>3. Review output</strong>
+          <p>
+            The app shows the exact opening-hand rate for finding at least one.
+          </p>
         </article>
       </div>
     </section>
   )
 }
 
-function StatusPanel({ model }: { model: WorkbenchModel }) {
+function ImportStatusBanner({ model }: { model: WorkbenchModel }) {
   return (
-    <section className="surface-panel status-panel" aria-live="polite">
-      <div className="panel-header-row compact">
-        <div>
-          <p className="panel-kicker">Deck Status</p>
-          <h2>Import pulse</h2>
-        </div>
-      </div>
-
+    <section className="import-status-banner" aria-live="polite">
       {model.errorMessage ? (
         <p className="status-message is-error">{model.errorMessage}</p>
       ) : model.isLoading ? (
@@ -577,31 +582,6 @@ function StatusPanel({ model }: { model: WorkbenchModel }) {
           No deck loaded yet. Import a list to unlock the starter board.
         </p>
       )}
-
-      <dl className="status-grid">
-        <div>
-          <dt>Main</dt>
-          <dd>
-            {model.deckView?.sections.find((section) => section.key === 'main')?.totalCards ?? 0}
-          </dd>
-        </div>
-        <div>
-          <dt>Extra</dt>
-          <dd>
-            {model.deckView?.sections.find((section) => section.key === 'extra')?.totalCards ?? 0}
-          </dd>
-        </div>
-        <div>
-          <dt>Side</dt>
-          <dd>
-            {model.deckView?.sections.find((section) => section.key === 'side')?.totalCards ?? 0}
-          </dd>
-        </div>
-        <div>
-          <dt>Unique</dt>
-          <dd>{model.deckView?.uniqueCards ?? 0}</dd>
-        </div>
-      </dl>
     </section>
   )
 }
@@ -625,7 +605,9 @@ function ConfigHero({ model }: { model: WorkbenchModel }) {
         </div>
         <div>
           <span>Source</span>
-          <strong>{model.deckView?.sourceName ?? model.sourceName ?? 'Pasted'}</strong>
+          <strong>
+            {model.deckView?.sourceName ?? model.sourceName ?? 'Pasted'}
+          </strong>
         </div>
       </div>
 
@@ -668,7 +650,9 @@ function StarterCountPanel({ model }: { model: WorkbenchModel }) {
           value={model.starterCopies}
           onChange={(event) => {
             const nextValue = Number(event.target.value)
-            model.updateStarterCopies(Number.isFinite(nextValue) ? nextValue : 0)
+            model.updateStarterCopies(
+              Number.isFinite(nextValue) ? nextValue : 0,
+            )
           }}
         />
       </label>
@@ -740,7 +724,9 @@ function RateBoard({ model }: { model: WorkbenchModel }) {
         </article>
         <article>
           <p>Source</p>
-          <strong>{model.deckView?.sourceName ?? model.sourceName ?? 'Pasted deck'}</strong>
+          <strong>
+            {model.deckView?.sourceName ?? model.sourceName ?? 'Pasted deck'}
+          </strong>
         </article>
       </div>
     </section>
@@ -749,11 +735,16 @@ function RateBoard({ model }: { model: WorkbenchModel }) {
 
 function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
   const [activeSection, setActiveSection] = useState<DeckSection>('main')
+  const [sortKey, setSortKey] = useState<DeckSortKey>('copies')
+  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
+  const [viewMode, setViewMode] = useState<DeckViewMode>('table')
 
   if (!model.deckView) {
     return (
       <section className="surface-panel starter-grid-panel">
-        <p className="empty-panel-copy">Load a deck first to open the analysis page.</p>
+        <p className="empty-panel-copy">
+          Load a deck first to open the analysis page.
+        </p>
       </section>
     )
   }
@@ -761,6 +752,33 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
   const activeDeckSection =
     model.deckView.sections.find((section) => section.key === activeSection) ??
     model.deckView.sections[0]
+  const sortedEntries = sortDeckEntries(
+    activeDeckSection.entries,
+    sortKey,
+    sortDirection,
+  )
+  const compactViewAvailable = activeSection === 'main'
+  const showCompactView = compactViewAvailable && viewMode === 'compact-main'
+
+  function handleSectionChange(section: DeckSection) {
+    setActiveSection(section)
+
+    if (section !== 'main') {
+      setViewMode('table')
+    }
+  }
+
+  function handleSortChange(nextKey: DeckSortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(nextKey)
+    setSortDirection(
+      nextKey === 'name' || nextKey === 'details' ? 'asc' : 'desc',
+    )
+  }
 
   return (
     <section className="surface-panel deck-view-panel">
@@ -784,7 +802,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                 type="button"
                 role="tab"
                 aria-selected={activeSection === section}
-                onClick={() => setActiveSection(section)}
+                onClick={() => handleSectionChange(section)}
               >
                 {SECTION_LABELS[section]} · {totalCards}
               </button>
@@ -797,13 +815,6 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
         This page is for reference and verification. The calculation panel uses
         the number input, while the deck viewer keeps the imported list visible.
       </p>
-
-      <div className="deck-list-header" aria-hidden="true">
-        <span>Art</span>
-        <span>Card</span>
-        <span>Copies</span>
-        <span>Password / Notes</span>
-      </div>
 
       <div className="deck-stage-meta">
         <div>
@@ -820,39 +831,175 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
         </div>
       </div>
 
-      <div className="deck-list">
-        {activeDeckSection.entries.map((entry) => (
-          <article className="deck-list-row" key={`${activeSection}-${entry.id}`}>
-            <div className="deck-list-art">
-              {entry.imageUrl ? (
-                <img
-                  alt={entry.name}
-                  height={350}
-                  loading="lazy"
-                  src={entry.imageUrl}
-                  width={240}
-                />
-              ) : (
-                <div className="starter-card-fallback">{entry.id}</div>
-              )}
-            </div>
-            <div className="deck-list-content">
-              <strong>{entry.name}</strong>
-            </div>
-            <div className="deck-list-count">
-              <span className="deck-list-copies">{entry.copies}x</span>
-            </div>
-            <div className="deck-list-meta">
-              <p>{entry.status === 'missing' ? 'Missing card data' : entry.id}</p>
-              {entry.details.length > 0 ? (
-                <span className="deck-list-detail">{entry.details.join(' · ')}</span>
-              ) : (
-                <span className="deck-list-detail">No extra card text cached.</span>
-              )}
-            </div>
-          </article>
-        ))}
+      <div className="deck-view-toolbar">
+        <div
+          className="deck-view-mode-toggle"
+          role="tablist"
+          aria-label="Deck view mode"
+        >
+          <button
+            className={`section-tab ${viewMode === 'table' ? 'is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'table'}
+            onClick={() => setViewMode('table')}
+          >
+            Sortable table
+          </button>
+          <button
+            className={`section-tab ${showCompactView ? 'is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={showCompactView}
+            disabled={!compactViewAvailable}
+            title={
+              compactViewAvailable
+                ? 'Show a compact text list for the main deck.'
+                : 'Compact mode is only available for the main deck.'
+            }
+            onClick={() => {
+              if (compactViewAvailable) {
+                setViewMode('compact-main')
+              }
+            }}
+          >
+            Main deck only
+          </button>
+        </div>
+        <p className="deck-view-toolbar-note">
+          {showCompactView
+            ? 'Extreme-density text mode for the main deck.'
+            : 'Click column headers to sort the current section.'}
+        </p>
       </div>
+
+      {showCompactView ? (
+        <div className="deck-compact-list" aria-label="Compact main deck list">
+          {sortedEntries.map((entry) => (
+            <div
+              className="deck-compact-line"
+              key={`${activeSection}-${entry.id}`}
+            >
+              <span className="deck-compact-copies">{entry.copies}x</span>
+              <span className="deck-compact-name">{entry.name}</span>
+              <span className="deck-compact-id">{entry.id}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="deck-table-shell">
+          <table className="deck-table">
+            <thead>
+              <tr>
+                <th scope="col">Art</th>
+                <th scope="col">
+                  <button
+                    className="deck-sort-button"
+                    type="button"
+                    onClick={() => handleSortChange('name')}
+                  >
+                    Card
+                    <span aria-hidden="true">
+                      {sortKey === 'name'
+                        ? getSortDirectionMark(sortDirection)
+                        : '↕'}
+                    </span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <button
+                    className="deck-sort-button"
+                    type="button"
+                    onClick={() => handleSortChange('copies')}
+                  >
+                    Copies
+                    <span aria-hidden="true">
+                      {sortKey === 'copies'
+                        ? getSortDirectionMark(sortDirection)
+                        : '↕'}
+                    </span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <button
+                    className="deck-sort-button"
+                    type="button"
+                    onClick={() => handleSortChange('id')}
+                  >
+                    Password
+                    <span aria-hidden="true">
+                      {sortKey === 'id'
+                        ? getSortDirectionMark(sortDirection)
+                        : '↕'}
+                    </span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <button
+                    className="deck-sort-button"
+                    type="button"
+                    onClick={() => handleSortChange('details')}
+                  >
+                    Notes
+                    <span aria-hidden="true">
+                      {sortKey === 'details'
+                        ? getSortDirectionMark(sortDirection)
+                        : '↕'}
+                    </span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedEntries.map((entry) => (
+                <tr key={`${activeSection}-${entry.id}`}>
+                  <td className="deck-table-art-cell">
+                    <div className="deck-list-art">
+                      {entry.imageUrl ? (
+                        <img
+                          alt={entry.name}
+                          height={350}
+                          loading="lazy"
+                          src={entry.imageUrl}
+                          width={240}
+                        />
+                      ) : (
+                        <div className="starter-card-fallback">{entry.id}</div>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="deck-list-content">
+                      <strong>{entry.name}</strong>
+                    </div>
+                  </td>
+                  <td className="deck-list-count">
+                    <span className="deck-list-copies">{entry.copies}x</span>
+                  </td>
+                  <td className="deck-table-id-cell">
+                    {entry.status === 'missing'
+                      ? 'Missing card data'
+                      : entry.id}
+                  </td>
+                  <td>
+                    <div className="deck-list-meta">
+                      {entry.details.length > 0 ? (
+                        <span className="deck-list-detail">
+                          {entry.details.join(' · ')}
+                        </span>
+                      ) : (
+                        <span className="deck-list-detail">
+                          No extra card text cached.
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }
@@ -870,7 +1017,8 @@ function DeckSummaryPanel({ model }: { model: WorkbenchModel }) {
       <div className="summary-grid">
         {SECTION_ORDER.map((section) => {
           const totalCards =
-            model.deckView?.sections.find((entry) => entry.key === section)?.totalCards ?? 0
+            model.deckView?.sections.find((entry) => entry.key === section)
+              ?.totalCards ?? 0
 
           return (
             <article className="summary-card" key={section}>
@@ -905,7 +1053,9 @@ function DeckLedgerPanel({ model }: { model: WorkbenchModel }) {
       <dl className="ledger-list">
         <div>
           <dt>Source</dt>
-          <dd>{model.deckView?.sourceName ?? model.sourceName ?? 'Not loaded'}</dd>
+          <dd>
+            {model.deckView?.sourceName ?? model.sourceName ?? 'Not loaded'}
+          </dd>
         </div>
         <div>
           <dt>Created by</dt>
@@ -930,36 +1080,38 @@ function buildDeckView(
   sourceName: string | null,
 ): DeckView {
   const sections = SECTION_ORDER.map((section) => {
-    const cards = collapseDeckSection(parsedDeck.sections[section]).map((entry) => {
-      const lookupEntry = lookup.get(entry.id)
+    const cards = collapseDeckSection(parsedDeck.sections[section]).map(
+      (entry) => {
+        const lookupEntry = lookup.get(entry.id)
 
-      if (!lookupEntry || lookupEntry.status === 'missing') {
+        if (!lookupEntry || lookupEntry.status === 'missing') {
+          return {
+            id: entry.id,
+            copies: entry.copies,
+            status: 'missing' as const,
+            name: `Unknown card ${entry.id}`,
+            imageUrl: null,
+            details: [
+              lookupEntry?.message ??
+                `No card data was returned for password ${entry.id}.`,
+            ],
+          }
+        }
+
         return {
           id: entry.id,
           copies: entry.copies,
-          status: 'missing' as const,
-          name: `Unknown card ${entry.id}`,
-          imageUrl: null,
-          details: [
-            lookupEntry?.message ??
-              `No card data was returned for password ${entry.id}.`,
-          ],
+          status: 'ready' as const,
+          name: getPreferredCardName(lookupEntry.card, entry.id),
+          imageUrl: getCardImageUrl(entry.id),
+          details: (lookupEntry.card.text.types ?? '')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 2),
         }
-      }
-
-      return {
-        id: entry.id,
-        copies: entry.copies,
-        status: 'ready' as const,
-        name: getPreferredCardName(lookupEntry.card, entry.id),
-        imageUrl: getCardImageUrl(entry.id),
-        details: (lookupEntry.card.text.types ?? '')
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .slice(0, 2),
-      }
-    })
+      },
+    )
 
     return {
       key: section,
@@ -978,8 +1130,9 @@ function buildDeckView(
     sourceName,
     warnings: parsedDeck.warnings,
     uniqueCards: lookup.size,
-    missingCards: [...lookup.values()].filter((entry) => entry.status === 'missing')
-      .length,
+    missingCards: [...lookup.values()].filter(
+      (entry) => entry.status === 'missing',
+    ).length,
     sections,
   }
 }
@@ -1025,4 +1178,40 @@ function formatPercent(value: number) {
 
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError'
+}
+
+function sortDeckEntries(
+  entries: DeckCardView[],
+  sortKey: DeckSortKey,
+  sortDirection: 'asc' | 'desc',
+) {
+  const direction = sortDirection === 'asc' ? 1 : -1
+
+  return [...entries].sort((left, right) => {
+    let comparison = 0
+
+    if (sortKey === 'copies') {
+      comparison = left.copies - right.copies
+    } else if (sortKey === 'id') {
+      comparison = left.id.localeCompare(right.id, undefined, { numeric: true })
+    } else if (sortKey === 'details') {
+      comparison = left.details.join(' ').localeCompare(right.details.join(' '))
+    } else {
+      comparison = left.name.localeCompare(right.name)
+    }
+
+    if (comparison === 0) {
+      comparison = left.name.localeCompare(right.name)
+    }
+
+    if (comparison === 0) {
+      comparison = left.id.localeCompare(right.id, undefined, { numeric: true })
+    }
+
+    return comparison * direction
+  })
+}
+
+function getSortDirectionMark(direction: 'asc' | 'desc') {
+  return direction === 'asc' ? '↑' : '↓'
 }
