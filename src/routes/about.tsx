@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/about')({
   component: About,
@@ -6,36 +6,21 @@ export const Route = createFileRoute('/about')({
 
 function About() {
   return (
-    <main className="page-wrap about-page">
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <h1>About</h1>
-            <p>
-              This project is focused on practical Yu-Gi-Oh deck tooling. The
-              current homepage is a deck viewer built around YDK imports.
-            </p>
-          </div>
-        </div>
-
+    <main className="about-shell">
+      <section className="about-panel">
         <div className="about-copy">
+          <p className="panel-kicker">About this prototype</p>
+          <h1>One focused starter-rate experience sits on the home route.</h1>
           <p>
-            Upload a simulator-exported <code>.ydk</code> file, or paste the raw
-            text directly into the viewer.
+            The current pass focuses on YDK import plus one-card starter
+            selection. The calculation logic stays intact; the interface was
+            rebuilt around a darker, warmer, game-first presentation.
           </p>
-          <p>
-            The parser reads the standard <code>#main</code>,{' '}
-            <code>#extra</code>, and <code>!side</code> sections, then resolves
-            card metadata from a Postgres cache, falling back to the{' '}
-            <a href="https://ygocdb.com/api" target="_blank" rel="noreferrer">
-              YGOCDB API
-            </a>
-            .
-          </p>
-          <p>
-            Any malformed lines are surfaced as warnings so the deck can still
-            render when possible.
-          </p>
+        </div>
+        <div className="about-actions">
+          <Link className="primary-button" to="/">
+            Back to starter board
+          </Link>
         </div>
       </section>
     </main>
