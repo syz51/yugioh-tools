@@ -84,3 +84,15 @@ export function collapseDeckSection(cardIds: string[]) {
     copies,
   }))
 }
+
+export function getDeckCardIds(deck: ParsedYdkDeck) {
+  return [...deck.sections.main, ...deck.sections.extra, ...deck.sections.side]
+}
+
+export function getDeckCardCount(deck: ParsedYdkDeck) {
+  return getDeckCardIds(deck).length
+}
+
+export function getUniqueDeckCardCount(deck: ParsedYdkDeck) {
+  return new Set(getDeckCardIds(deck)).size
+}

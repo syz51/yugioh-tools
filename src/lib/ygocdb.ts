@@ -35,8 +35,14 @@ export type DeckCardLookup =
 
 const CARD_API_BASE = 'https://ygocdb.com/api/v0/card'
 const CARD_IMAGE_BASE = 'https://cdn.233.momobako.com/ygopro/pics'
+const DEFAULT_FETCH_CONCURRENCY = 8
 
-const cardCache = new Map<string, Promise<DeckCardLookup>>()
+const cardCache = new Map<string, DeckCardLookup>()
+
+type FetchDeckCardsOptions = {
+  concurrency?: number
+  signal?: AbortSignal
+}
 
 export function getCardImageUrl(cardId: string) {
   return `${CARD_IMAGE_BASE}/${cardId}.jpg`
@@ -60,36 +66,68 @@ export function getPreferredCardName(
   )
 }
 
-export async function fetchDeckCards(cardIds: string[]) {
+export async function fetchDeckCards(
+  cardIds: string[],
+  options: FetchDeckCardsOptions = {},
+) {
   const uniqueIds = [...new Set(cardIds)]
-  const lookups = await Promise.all(
-    uniqueIds.map(
-      async (cardId) => [cardId, await fetchDeckCard(cardId)] as const,
+  const lookups = new Map<string, DeckCardLookup>()
+
+  if (uniqueIds.length === 0) {
+    return lookups
+  }
+
+  const signal = options.signal
+  const concurrency = Math.max(
+    1,
+    Math.min(
+      options.concurrency ?? DEFAULT_FETCH_CONCURRENCY,
+      uniqueIds.length,
     ),
   )
+  let nextIndex = 0
 
-  return new Map(lookups)
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      while (nextIndex < uniqueIds.length) {
+        signal?.throwIfAborted()
+
+        const currentIndex = nextIndex
+        nextIndex += 1
+        const cardId = uniqueIds[currentIndex]
+        if (!cardId) {
+          continue
+        }
+
+        lookups.set(cardId, await fetchDeckCard(cardId, signal))
+      }
+    }),
+  )
+
+  return lookups
 }
 
-async function fetchDeckCard(cardId: string): Promise<DeckCardLookup> {
+async function fetchDeckCard(
+  cardId: string,
+  signal?: AbortSignal,
+): Promise<DeckCardLookup> {
   const cached = cardCache.get(cardId)
   if (cached) {
     return cached
   }
 
-  const request = loadDeckCard(cardId)
-  cardCache.set(cardId, request)
-
-  try {
-    return await request
-  } catch (error) {
-    cardCache.delete(cardId)
-    throw error
-  }
+  const result = await loadDeckCard(cardId, signal)
+  cardCache.set(cardId, result)
+  return result
 }
 
-async function loadDeckCard(cardId: string): Promise<DeckCardLookup> {
-  const response = await fetch(`${CARD_API_BASE}/${cardId}?show=all`)
+async function loadDeckCard(
+  cardId: string,
+  signal?: AbortSignal,
+): Promise<DeckCardLookup> {
+  const response = await fetch(`${CARD_API_BASE}/${cardId}?show=all`, {
+    signal,
+  })
 
   if (!response.ok) {
     return {

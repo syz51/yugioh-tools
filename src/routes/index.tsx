@@ -1,7 +1,13 @@
-import { startTransition, useId, useRef, useState } from 'react'
+import { startTransition, useEffect, useId, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import type { DeckSection } from '../lib/ydk'
-import { collapseDeckSection, parseYdk } from '../lib/ydk'
+import {
+  collapseDeckSection,
+  getDeckCardCount,
+  getDeckCardIds,
+  getUniqueDeckCardCount,
+  parseYdk,
+} from '../lib/ydk'
 import type { DeckCardLookup } from '../lib/ygocdb'
 import {
   fetchDeckCards,
@@ -47,6 +53,11 @@ const SECTION_LABELS: Record<DeckSection, string> = {
   side: 'Side Deck',
 }
 
+const MAX_UPLOAD_BYTES = 256 * 1024
+const MAX_DECK_CARD_LINES = 256
+const MAX_UNIQUE_CARD_IDS = 128
+const CARD_FETCH_CONCURRENCY = 8
+
 const SAMPLE_YDK = `#created by YGO Tools
 #main
 89631139
@@ -72,20 +83,28 @@ const SAMPLE_YDK = `#created by YGO Tools
 function DeckViewerPage() {
   const inputId = useId()
   const latestRequestRef = useRef(0)
+  const activeAbortControllerRef = useRef<AbortController | null>(null)
   const [draftText, setDraftText] = useState('')
   const [sourceName, setSourceName] = useState<string | null>(null)
   const [deckView, setDeckView] = useState<DeckView | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
+  useEffect(() => {
+    return () => {
+      activeAbortControllerRef.current?.abort()
+    }
+  }, [])
+
   async function importDeck(deckText: string, nextSourceName: string | null) {
     const parsed = parseYdk(deckText)
-    const totalCards = SECTION_ORDER.reduce(
-      (sum, section) => sum + parsed.sections[section].length,
-      0,
-    )
+    const totalCards = getDeckCardCount(parsed)
+    const limitError = getDeckImportLimitError(parsed, deckText)
 
     if (totalCards === 0) {
+      activeAbortControllerRef.current?.abort()
+      activeAbortControllerRef.current = null
+      setIsLoading(false)
       setDeckView(null)
       setErrorMessage(
         'The deck is empty. Upload a .ydk file or paste valid YDK text with main, extra, or side sections.',
@@ -93,17 +112,31 @@ function DeckViewerPage() {
       return
     }
 
+    if (limitError) {
+      activeAbortControllerRef.current?.abort()
+      activeAbortControllerRef.current = null
+      setIsLoading(false)
+      setDeckView(null)
+      setErrorMessage(limitError)
+      return
+    }
+
     setIsLoading(true)
     setErrorMessage(null)
     setDeckView(null)
+
+    activeAbortControllerRef.current?.abort()
+    const abortController = new AbortController()
+    activeAbortControllerRef.current = abortController
 
     const requestId = latestRequestRef.current + 1
     latestRequestRef.current = requestId
 
     try {
-      const cardLookup = await fetchDeckCards(
-        SECTION_ORDER.flatMap((section) => parsed.sections[section]),
-      )
+      const cardLookup = await fetchDeckCards(getDeckCardIds(parsed), {
+        concurrency: CARD_FETCH_CONCURRENCY,
+        signal: abortController.signal,
+      })
 
       if (latestRequestRef.current !== requestId) {
         return
@@ -118,6 +151,10 @@ function DeckViewerPage() {
         return
       }
 
+      if (isAbortError(error)) {
+        return
+      }
+
       setDeckView(null)
       setErrorMessage(
         error instanceof Error
@@ -126,12 +163,28 @@ function DeckViewerPage() {
       )
     } finally {
       if (latestRequestRef.current === requestId) {
+        if (activeAbortControllerRef.current === abortController) {
+          activeAbortControllerRef.current = null
+        }
         setIsLoading(false)
       }
     }
   }
 
   async function handleFileSelection(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      activeAbortControllerRef.current?.abort()
+      activeAbortControllerRef.current = null
+      setIsLoading(false)
+      setDeckView(null)
+      setErrorMessage(
+        `The selected file is too large. Keep YDK uploads under ${formatByteLimit(
+          MAX_UPLOAD_BYTES,
+        )}.`,
+      )
+      return
+    }
+
     const nextDraftText = await file.text()
     setDraftText(nextDraftText)
     setSourceName(file.name)
@@ -146,6 +199,8 @@ function DeckViewerPage() {
 
   function clearWorkspace() {
     latestRequestRef.current += 1
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = null
     setDraftText('')
     setSourceName(null)
     setDeckView(null)
@@ -162,6 +217,10 @@ function DeckViewerPage() {
             Upload a <code>.ydk</code> file or paste raw YDK text. The app
             parses your main, extra, and side decks, then loads each unique card
             directly from YGOCDB.
+          </p>
+          <p className="privacy-note">
+            Card metadata and card art are requested from YGOCDB and its image
+            CDN directly from your browser.
           </p>
         </div>
         <div className="page-intro-note">
@@ -182,6 +241,11 @@ function DeckViewerPage() {
               <p>
                 Standard YDK sections are supported: <code>#main</code>,{' '}
                 <code>#extra</code>, and <code>!side</code>.
+              </p>
+              <p>
+                Import limits: {MAX_DECK_CARD_LINES} card lines,{' '}
+                {MAX_UNIQUE_CARD_IDS} unique passwords, and{' '}
+                {formatByteLimit(MAX_UPLOAD_BYTES)} per upload.
               </p>
             </div>
             <label className="button button-primary" htmlFor={inputId}>
@@ -476,4 +540,36 @@ function buildDeckView(
 
 function getTotalCards(deckView: DeckView) {
   return deckView.sections.reduce((sum, section) => sum + section.totalCards, 0)
+}
+
+function getDeckImportLimitError(
+  parsedDeck: ReturnType<typeof parseYdk>,
+  deckText: string,
+) {
+  const textBytes = new TextEncoder().encode(deckText).length
+  if (textBytes > MAX_UPLOAD_BYTES) {
+    return `The pasted deck is too large. Keep YDK text under ${formatByteLimit(
+      MAX_UPLOAD_BYTES,
+    )}.`
+  }
+
+  const totalCards = getDeckCardCount(parsedDeck)
+  if (totalCards > MAX_DECK_CARD_LINES) {
+    return `This import lists ${totalCards} cards. The viewer currently accepts at most ${MAX_DECK_CARD_LINES} card lines per deck.`
+  }
+
+  const uniqueCards = getUniqueDeckCardCount(parsedDeck)
+  if (uniqueCards > MAX_UNIQUE_CARD_IDS) {
+    return `This import has ${uniqueCards} unique passwords. The viewer currently accepts at most ${MAX_UNIQUE_CARD_IDS} unique cards per deck.`
+  }
+
+  return null
+}
+
+function formatByteLimit(bytes: number) {
+  return `${Math.round(bytes / 1024)} KB`
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
 }

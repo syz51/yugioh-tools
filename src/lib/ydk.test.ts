@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { collapseDeckSection, parseYdk } from './ydk'
+import {
+  collapseDeckSection,
+  getDeckCardCount,
+  getUniqueDeckCardCount,
+  parseYdk,
+} from './ydk'
 
 describe('parseYdk', () => {
   it('parses standard main, extra, and side sections', () => {
@@ -45,5 +50,22 @@ describe('collapseDeckSection', () => {
       { id: '23995346', copies: 1 },
       { id: '5851097', copies: 1 },
     ])
+  })
+})
+
+describe('deck counting helpers', () => {
+  it('counts total and unique cards across all sections', () => {
+    const deck = parseYdk(`#main
+89631139
+89631139
+#extra
+23995346
+!side
+89631139
+5851097
+`)
+
+    expect(getDeckCardCount(deck)).toBe(5)
+    expect(getUniqueDeckCardCount(deck)).toBe(3)
   })
 })

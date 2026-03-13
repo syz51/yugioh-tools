@@ -319,6 +319,11 @@ code {
   line-height: 1.55;
 }
 
+.privacy-note {
+  max-width: 58ch;
+  font-size: 0.95rem;
+}
+
 .page-intro-note {
   min-width: 180px;
   padding-left: 20px;
