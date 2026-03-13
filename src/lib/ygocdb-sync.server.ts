@@ -2,7 +2,6 @@ import '@tanstack/react-start/server-only'
 import { eq } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { inflateRawSync } from 'node:zlib'
-import { db } from '../db'
 import { cardCache, ygocdbSyncState } from '../db/schema'
 import type { YgocdbCard } from './ygocdb'
 
@@ -13,11 +12,57 @@ const ZIP_LOCAL_FILE_HEADER_SIGNATURE = 0x04034b50
 const ZIP_COMPRESSION_METHOD_STORE = 0
 const ZIP_COMPRESSION_METHOD_DEFLATE = 8
 const INSERT_CHUNK_SIZE = 500
+const CARDS_JSON_FILE_NAME = 'cards.json'
 
 type ImportedCardRow = {
+  cacheKey: string
   cardId: string
   payload: YgocdbCard
   cachedAt: Date
+}
+
+type SyncStateRow = typeof ygocdbSyncState.$inferSelect
+type SyncStateInsert = typeof ygocdbSyncState.$inferInsert
+type CardCacheInsertRows = {
+  values: (rows: ImportedCardRow[]) => Promise<unknown>
+}
+type SyncStateInsertRow = {
+  values: (row: SyncStateInsert) => {
+    onConflictDoUpdate: (config: {
+      target: unknown
+      set: Partial<SyncStateInsert>
+    }) => Promise<unknown>
+  }
+}
+
+export type SyncTransactionClient = {
+  delete: (table: typeof cardCache) => Promise<unknown>
+  insert: ((table: typeof cardCache) => CardCacheInsertRows) &
+    ((table: typeof ygocdbSyncState) => SyncStateInsertRow)
+}
+
+export type SyncDbClient = {
+  select: () => {
+    from: (table: typeof ygocdbSyncState) => {
+      where: (condition: unknown) => {
+        limit: (count: number) => Promise<SyncStateRow[]>
+      }
+    }
+  }
+  update: (table: typeof ygocdbSyncState) => {
+    set: (values: Pick<SyncStateInsert, 'checkedAt'>) => {
+      where: (condition: unknown) => Promise<unknown>
+    }
+  }
+  transaction: <T>(
+    callback: (tx: SyncTransactionClient) => Promise<T>,
+  ) => Promise<T>
+}
+
+type SyncAllCardsOptions = {
+  dbClient?: SyncDbClient
+  fetchImpl?: typeof fetch
+  now?: () => Date
 }
 
 export type YgocdbCardSyncResult = {
@@ -30,9 +75,14 @@ export type YgocdbCardSyncResult = {
   syncedAt: string | null
 }
 
-export async function syncAllCardsFromYgocdb(): Promise<YgocdbCardSyncResult> {
-  const remoteMd5 = await fetchCardsArchiveMd5()
-  const existingRows = await db
+export async function syncAllCardsFromYgocdb(
+  options: SyncAllCardsOptions = {},
+): Promise<YgocdbCardSyncResult> {
+  const dbClient = options.dbClient ?? (await getDbClient())
+  const fetchImpl = options.fetchImpl ?? fetch
+  const getNow = options.now ?? (() => new Date())
+  const remoteMd5 = await fetchCardsArchiveMd5(fetchImpl)
+  const existingRows = await dbClient
     .select()
     .from(ygocdbSyncState)
     .where(eq(ygocdbSyncState.source, CARDS_ARCHIVE_SOURCE))
@@ -40,9 +90,9 @@ export async function syncAllCardsFromYgocdb(): Promise<YgocdbCardSyncResult> {
   const existingState = existingRows.at(0) ?? null
 
   if (existingState?.md5 === remoteMd5) {
-    const checkedAt = new Date()
+    const checkedAt = getNow()
 
-    await db
+    await dbClient
       .update(ygocdbSyncState)
       .set({ checkedAt })
       .where(eq(ygocdbSyncState.source, CARDS_ARCHIVE_SOURCE))
@@ -58,11 +108,11 @@ export async function syncAllCardsFromYgocdb(): Promise<YgocdbCardSyncResult> {
     }
   }
 
-  const cardsArchive = await fetchCardsArchive(remoteMd5)
+  const cardsArchive = await fetchCardsArchive(remoteMd5, fetchImpl)
   const importedCards = parseCardsArchive(cardsArchive)
-  const now = new Date()
+  const now = getNow()
 
-  await db.transaction(async (tx) => {
+  await dbClient.transaction(async (tx) => {
     await tx.delete(cardCache)
 
     for (const cardChunk of chunkItems(importedCards, INSERT_CHUNK_SIZE)) {
@@ -100,8 +150,14 @@ export async function syncAllCardsFromYgocdb(): Promise<YgocdbCardSyncResult> {
   }
 }
 
-async function fetchCardsArchiveMd5() {
-  const response = await fetch(CARDS_ARCHIVE_MD5_URL)
+async function getDbClient(): Promise<SyncDbClient> {
+  const { db } = await import('../db')
+
+  return db as unknown as SyncDbClient
+}
+
+async function fetchCardsArchiveMd5(fetchImpl: typeof fetch) {
+  const response = await fetchImpl(CARDS_ARCHIVE_MD5_URL)
   if (!response.ok) {
     throw new Error(
       `Failed to fetch ${CARDS_ARCHIVE_SOURCE} MD5: ${response.status} ${response.statusText}`,
@@ -114,8 +170,8 @@ async function fetchCardsArchiveMd5() {
   return md5
 }
 
-async function fetchCardsArchive(expectedMd5: string) {
-  const response = await fetch(CARDS_ARCHIVE_URL)
+async function fetchCardsArchive(expectedMd5: string, fetchImpl: typeof fetch) {
+  const response = await fetchImpl(CARDS_ARCHIVE_URL)
   if (!response.ok) {
     throw new Error(
       `Failed to fetch ${CARDS_ARCHIVE_SOURCE}: ${response.status} ${response.statusText}`,
@@ -123,7 +179,8 @@ async function fetchCardsArchive(expectedMd5: string) {
   }
 
   const archiveBuffer = Buffer.from(await response.arrayBuffer())
-  const archiveMd5 = createHash('md5').update(archiveBuffer).digest('hex')
+  const { fileBuffer, fileName } = extractJsonFromZipArchive(archiveBuffer)
+  const archiveMd5 = createHash('md5').update(fileBuffer).digest('hex')
 
   if (archiveMd5 !== expectedMd5) {
     throw new Error(
@@ -131,7 +188,13 @@ async function fetchCardsArchive(expectedMd5: string) {
     )
   }
 
-  return extractJsonFromZipArchive(archiveBuffer)
+  if (fileName !== CARDS_JSON_FILE_NAME) {
+    throw new Error(
+      `Invalid ${CARDS_ARCHIVE_SOURCE}: expected ${CARDS_JSON_FILE_NAME}, got ${fileName}.`,
+    )
+  }
+
+  return fileBuffer.toString('utf8')
 }
 
 function normalizeMd5(value: string) {
@@ -200,7 +263,7 @@ function extractJsonFromZipArchive(archiveBuffer: Buffer) {
     )
   }
 
-  return fileBuffer.toString('utf8')
+  return { fileBuffer, fileName }
 }
 
 function parseCardsArchive(archiveJson: string) {
@@ -212,7 +275,7 @@ function parseCardsArchive(archiveJson: string) {
   }
 
   const now = new Date()
-  const cardsById = new Map<string, ImportedCardRow>()
+  const importedCards: ImportedCardRow[] = []
 
   for (const [archiveKey, value] of Object.entries(parsed)) {
     if (value == null || typeof value !== 'object' || Array.isArray(value)) {
@@ -229,21 +292,28 @@ function parseCardsArchive(archiveJson: string) {
       )
     }
 
+    if (archiveKey.length === 0) {
+      throw new Error(
+        `Invalid ${CARDS_ARCHIVE_SOURCE}: cards.json contains an empty key.`,
+      )
+    }
+
     const cardId = String(card.id)
-    cardsById.set(cardId, {
+    importedCards.push({
+      cacheKey: archiveKey,
       cardId,
       payload: card as YgocdbCard,
       cachedAt: now,
     })
   }
 
-  if (cardsById.size === 0) {
+  if (importedCards.length === 0) {
     throw new Error(
       `Invalid ${CARDS_ARCHIVE_SOURCE}: cards.json contained no cards.`,
     )
   }
 
-  return [...cardsById.values()]
+  return importedCards
 }
 
 function chunkItems<T>(items: T[], chunkSize: number) {
