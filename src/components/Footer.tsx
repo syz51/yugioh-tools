@@ -2,11 +2,12 @@ export default function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="mt-20 border-t border-[var(--line)] px-4 pb-14 pt-10 text-[var(--sea-ink-soft)]">
-      <div className="page-wrap flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-        <p className="m-0 text-sm">&copy; {year} Yu-Gi-Oh Tools</p>
-        <p className="m-0 text-sm">
-          Exact opening-hand odds for starters, combo lines, and draw cards.
+    <footer className="site-footer">
+      <div className="page-wrap site-footer-inner">
+        <p>&copy; {year} Yu-Gi-Oh Tools</p>
+        <p>
+          Upload YDK files, resolve card data, and review the full deck on one
+          screen.
         </p>
       </div>
     </footer>
