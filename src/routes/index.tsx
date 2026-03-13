@@ -1,669 +1,575 @@
-import { useDeferredValue, useState } from 'react'
+import { startTransition, useEffect, useId, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import type { OpeningHandCalculationInput } from '../lib/opening-hand-calculator'
-import { calculateOpeningHandProbabilities } from '../lib/opening-hand-calculator'
+import type { DeckSection } from '../lib/ydk'
+import {
+  collapseDeckSection,
+  getDeckCardCount,
+  getDeckCardIds,
+  getUniqueDeckCardCount,
+  parseYdk,
+} from '../lib/ydk'
+import type { DeckCardLookup } from '../lib/ygocdb'
+import {
+  fetchDeckCards,
+  getCardImageUrl,
+  getPreferredCardName,
+} from '../lib/ygocdb'
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute('/')({
+  component: DeckViewerPage,
+})
 
-type ComboPoolForm = {
+type DeckCardView = {
   id: string
-  label: string
   copies: number
+  status: DeckCardLookup['status']
+  name: string
+  imageUrl: string | null
+  details: string[]
 }
 
-type ComboRecipeForm = {
-  id: string
+type DeckSectionView = {
+  key: DeckSection
   label: string
-  requirements: Record<string, number>
+  totalCards: number
+  entries: DeckCardView[]
 }
 
-type DrawEffectForm = {
-  id: string
-  label: string
-  copies: number
-  drawsPerActivation: number
-  maxActivations: number
+type DeckView = {
+  createdBy: string | null
+  importedAt: string
+  sourceName: string | null
+  warnings: string[]
+  uniqueCards: number
+  missingCards: number
+  sections: DeckSectionView[]
 }
 
-type CalculatorFormState = {
-  deckSize: number
-  openingHandSize: number
-  oneCardStarterCopies: number
-  comboPools: ComboPoolForm[]
-  comboRecipes: ComboRecipeForm[]
-  drawEffects: DrawEffectForm[]
+const SECTION_ORDER: DeckSection[] = ['main', 'extra', 'side']
+
+const SECTION_LABELS: Record<DeckSection, string> = {
+  main: 'Main Deck',
+  extra: 'Extra Deck',
+  side: 'Side Deck',
 }
 
-const DEFAULT_FORM_STATE: CalculatorFormState = {
-  deckSize: 40,
-  openingHandSize: 5,
-  oneCardStarterCopies: 12,
-  comboPools: [
-    { id: 'discarders', label: 'Discarders', copies: 9 },
-    { id: 'payoffs', label: 'Payoffs', copies: 6 },
-  ],
-  comboRecipes: [
-    {
-      id: 'discard-plus-payoff',
-      label: 'Discarder + payoff',
-      requirements: {
-        discarders: 1,
-        payoffs: 1,
-      },
-    },
-  ],
-  drawEffects: [
-    {
-      id: 'pot-of-extravagance',
-      label: 'Pot of Extravagance',
-      copies: 3,
-      drawsPerActivation: 2,
-      maxActivations: 1,
-    },
-  ],
-}
+const MAX_UPLOAD_BYTES = 256 * 1024
+const MAX_DECK_CARD_LINES = 256
+const MAX_UNIQUE_CARD_IDS = 128
+const CARD_FETCH_CONCURRENCY = 8
 
-function App() {
-  const [formState, setFormState] = useState(DEFAULT_FORM_STATE)
-  const deferredFormState = useDeferredValue(formState)
+const SAMPLE_YDK = `#created by YGO Tools
+#main
+89631139
+89631139
+89631139
+38517737
+38517737
+38517737
+53129443
+53129443
+53129443
+23995346
+23995346
+#extra
+44508094
+63767246
+!side
+5851097
+5851097
+102380
+`
 
-  const calculation = buildCalculationState(deferredFormState)
-  const namedCards =
-    deferredFormState.oneCardStarterCopies +
-    deferredFormState.comboPools.reduce((sum, pool) => sum + pool.copies, 0) +
-    deferredFormState.drawEffects.reduce((sum, pool) => sum + pool.copies, 0)
-  const fillerCards = deferredFormState.deckSize - namedCards
+function DeckViewerPage() {
+  const inputId = useId()
+  const latestRequestRef = useRef(0)
+  const activeAbortControllerRef = useRef<AbortController | null>(null)
+  const [draftText, setDraftText] = useState('')
+  const [sourceName, setSourceName] = useState<string | null>(null)
+  const [deckView, setDeckView] = useState<DeckView | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    return () => {
+      activeAbortControllerRef.current?.abort()
+    }
+  }, [])
+
+  async function importDeck(deckText: string, nextSourceName: string | null) {
+    const parsed = parseYdk(deckText)
+    const totalCards = getDeckCardCount(parsed)
+    const limitError = getDeckImportLimitError(parsed, deckText)
+
+    if (totalCards === 0) {
+      activeAbortControllerRef.current?.abort()
+      activeAbortControllerRef.current = null
+      setIsLoading(false)
+      setDeckView(null)
+      setErrorMessage(
+        'The deck is empty. Upload a .ydk file or paste valid YDK text with main, extra, or side sections.',
+      )
+      return
+    }
+
+    if (limitError) {
+      activeAbortControllerRef.current?.abort()
+      activeAbortControllerRef.current = null
+      setIsLoading(false)
+      setDeckView(null)
+      setErrorMessage(limitError)
+      return
+    }
+
+    setIsLoading(true)
+    setErrorMessage(null)
+    setDeckView(null)
+
+    activeAbortControllerRef.current?.abort()
+    const abortController = new AbortController()
+    activeAbortControllerRef.current = abortController
+
+    const requestId = latestRequestRef.current + 1
+    latestRequestRef.current = requestId
+
+    try {
+      const cardLookup = await fetchDeckCards(getDeckCardIds(parsed), {
+        concurrency: CARD_FETCH_CONCURRENCY,
+        signal: abortController.signal,
+      })
+
+      if (latestRequestRef.current !== requestId) {
+        return
+      }
+
+      const nextDeckView = buildDeckView(parsed, cardLookup, nextSourceName)
+      startTransition(() => {
+        setDeckView(nextDeckView)
+      })
+    } catch (error) {
+      if (latestRequestRef.current !== requestId) {
+        return
+      }
+
+      if (isAbortError(error)) {
+        return
+      }
+
+      setDeckView(null)
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to load card data from YGOCDB right now.',
+      )
+    } finally {
+      if (latestRequestRef.current === requestId) {
+        if (activeAbortControllerRef.current === abortController) {
+          activeAbortControllerRef.current = null
+        }
+        setIsLoading(false)
+      }
+    }
+  }
+
+  async function handleFileSelection(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      activeAbortControllerRef.current?.abort()
+      activeAbortControllerRef.current = null
+      setIsLoading(false)
+      setDeckView(null)
+      setErrorMessage(
+        `The selected file is too large. Keep YDK uploads under ${formatByteLimit(
+          MAX_UPLOAD_BYTES,
+        )}.`,
+      )
+      return
+    }
+
+    const nextDraftText = await file.text()
+    setDraftText(nextDraftText)
+    setSourceName(file.name)
+    await importDeck(nextDraftText, file.name)
+  }
+
+  function loadSampleDeck() {
+    setDraftText(SAMPLE_YDK)
+    setSourceName('sample-blue-eyes.ydk')
+    void importDeck(SAMPLE_YDK, 'sample-blue-eyes.ydk')
+  }
+
+  function clearWorkspace() {
+    latestRequestRef.current += 1
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = null
+    setDraftText('')
+    setSourceName(null)
+    setDeckView(null)
+    setErrorMessage(null)
+    setIsLoading(false)
+  }
 
   return (
-    <main className="page-wrap px-4 pb-12 pt-8">
-      <section className="calc-layout">
-        <div className="calc-main">
-          <section className="calc-panel">
-            <h1 className="calc-title">Yu-Gi-Oh opening hand calculator</h1>
-            <p className="calc-copy">
-              Define disjoint card pools, then calculate the exact chance that
-              your opening five can access any starter line. One-card starters,
-              two-card combinations, three-card lines, and opening draw effects
-              all use the same probability engine.
+    <main className="page-wrap deck-page">
+      <section className="page-intro">
+        <div>
+          <h1>Deck Viewer</h1>
+          <p>
+            Upload a <code>.ydk</code> file or paste raw YDK text. The app
+            parses your main, extra, and side decks, then loads each unique card
+            directly from YGOCDB.
+          </p>
+          <p className="privacy-note">
+            Card metadata and card art are requested from YGOCDB and its image
+            CDN directly from your browser.
+          </p>
+        </div>
+        <div className="page-intro-note">
+          <span>Source</span>
+          <strong>
+            <a href="https://ygocdb.com/api" target="_blank" rel="noreferrer">
+              YGOCDB API
+            </a>
+          </strong>
+        </div>
+      </section>
+
+      <section className="workspace-grid">
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <h2>Import deck</h2>
+              <p>
+                Standard YDK sections are supported: <code>#main</code>,{' '}
+                <code>#extra</code>, and <code>!side</code>.
+              </p>
+              <p>
+                Import limits: {MAX_DECK_CARD_LINES} card lines,{' '}
+                {MAX_UNIQUE_CARD_IDS} unique passwords, and{' '}
+                {formatByteLimit(MAX_UPLOAD_BYTES)} per upload.
+              </p>
+            </div>
+            <label className="button button-primary" htmlFor={inputId}>
+              Choose .ydk file
+            </label>
+            <input
+              id={inputId}
+              className="sr-only"
+              type="file"
+              accept=".ydk,text/plain"
+              disabled={isLoading}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (!file) {
+                  return
+                }
+
+                void handleFileSelection(file)
+                event.target.value = ''
+              }}
+            />
+          </div>
+
+          <form
+            className="editor-stack"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void importDeck(draftText, sourceName)
+            }}
+          >
+            <label className="field-block" htmlFor={`${inputId}-editor`}>
+              <span>YDK text</span>
+              <textarea
+                id={`${inputId}-editor`}
+                className="deck-textarea"
+                placeholder={`#created by Your Name\n#main\n89631139\n#extra\n!side`}
+                value={draftText}
+                onChange={(event) => setDraftText(event.target.value)}
+              />
+            </label>
+
+            <div className="button-row">
+              <button className="button button-primary" type="submit">
+                {isLoading ? 'Loading cards...' : 'Render deck'}
+              </button>
+              <button
+                className="button"
+                type="button"
+                onClick={loadSampleDeck}
+                disabled={isLoading}
+              >
+                Load sample
+              </button>
+              <button
+                className="button"
+                type="button"
+                onClick={clearWorkspace}
+                disabled={isLoading}
+              >
+                Clear
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside className="panel panel-muted">
+          <div className="panel-header">
+            <div>
+              <h2>Deck status</h2>
+              <p>
+                Imported decks are grouped by section and deduplicated by card
+                password.
+              </p>
+            </div>
+          </div>
+
+          <div aria-live="polite" className="status-block">
+            {errorMessage ? (
+              <p className="status-message status-message-error">
+                {errorMessage}
+              </p>
+            ) : isLoading ? (
+              <p className="status-message">
+                Fetching card data from YGOCDB...
+              </p>
+            ) : deckView ? (
+              <p className="status-message">
+                Showing {getTotalCards(deckView)} cards from{' '}
+                {deckView.sourceName ?? 'the pasted deck'}.
+              </p>
+            ) : (
+              <p className="status-message">
+                Nothing loaded yet. Choose a YDK file or paste deck text to
+                render it.
+              </p>
+            )}
+          </div>
+
+          <div className="summary-grid">
+            {SECTION_ORDER.map((section) => {
+              const totalCards =
+                deckView?.sections.find((entry) => entry.key === section)
+                  ?.totalCards ?? 0
+
+              return (
+                <article className="summary-card" key={section}>
+                  <span>{SECTION_LABELS[section]}</span>
+                  <strong>{totalCards}</strong>
+                </article>
+              )
+            })}
+            <article className="summary-card">
+              <span>Unique cards</span>
+              <strong>{deckView?.uniqueCards ?? 0}</strong>
+            </article>
+          </div>
+
+          <dl className="meta-list">
+            <div>
+              <dt>Source</dt>
+              <dd>{deckView?.sourceName ?? sourceName ?? 'Not loaded'}</dd>
+            </div>
+            <div>
+              <dt>Created by</dt>
+              <dd>{deckView?.createdBy ?? 'Unknown'}</dd>
+            </div>
+            <div>
+              <dt>Imported</dt>
+              <dd>{deckView?.importedAt ?? 'Waiting for deck'}</dd>
+            </div>
+            <div>
+              <dt>Missing cards</dt>
+              <dd>{deckView?.missingCards ?? 0}</dd>
+            </div>
+          </dl>
+
+          {deckView?.warnings.length ? (
+            <div className="warning-block">
+              <h3>Warnings</h3>
+              <ul>
+                {deckView.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </aside>
+      </section>
+
+      <section className="deck-sections">
+        {deckView ? (
+          deckView.sections.map((section) => (
+            <section className="panel section-panel" key={section.key}>
+              <div className="section-header">
+                <div>
+                  <h2>{section.label}</h2>
+                  <p>
+                    {section.totalCards} cards · {section.entries.length} unique
+                  </p>
+                </div>
+              </div>
+
+              {section.entries.length ? (
+                <div className="card-grid">
+                  {section.entries.map((entry) => (
+                    <article
+                      className={`deck-card ${
+                        entry.status === 'missing' ? 'is-missing' : ''
+                      }`}
+                      key={`${section.key}-${entry.id}`}
+                    >
+                      <div className="deck-card-media">
+                        {entry.imageUrl ? (
+                          <img
+                            src={entry.imageUrl}
+                            alt={entry.name}
+                            loading="lazy"
+                            width={240}
+                            height={350}
+                          />
+                        ) : (
+                          <div className="deck-card-fallback">{entry.id}</div>
+                        )}
+                      </div>
+
+                      <div className="deck-card-body">
+                        <div className="deck-card-head">
+                          <h3>{entry.name}</h3>
+                          <strong>{entry.copies}x</strong>
+                        </div>
+                        <p className="deck-card-id">{entry.id}</p>
+                        {entry.details.map((detail) => (
+                          <p
+                            className="deck-card-detail"
+                            key={`${entry.id}-${detail}`}
+                          >
+                            {detail}
+                          </p>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">No cards in this section.</p>
+              )}
+            </section>
+          ))
+        ) : (
+          <section className="panel section-panel">
+            <div className="section-header">
+              <div>
+                <h2>Deck preview</h2>
+                <p>
+                  Your uploaded deck will appear here once it has been parsed.
+                </p>
+              </div>
+            </div>
+            <p className="empty-state">
+              Use a normal YDK file exported by your simulator. The viewer keeps
+              your section order intact and pulls card art by password.
             </p>
           </section>
-
-          <section className="calc-panel">
-            <div className="calc-section-head">
-              <h2>Deck settings</h2>
-              <p>Everything else is measured against this deck list.</p>
-            </div>
-            <div className="calc-grid calc-grid-compact">
-              <label className="calc-field">
-                <span>Deck size</span>
-                <input
-                  className="calc-input"
-                  type="number"
-                  min={1}
-                  value={formState.deckSize}
-                  onChange={(event) => {
-                    setFormState((current) => ({
-                      ...current,
-                      deckSize: readInteger(event.target.value),
-                    }))
-                  }}
-                />
-              </label>
-              <label className="calc-field">
-                <span>Opening hand size</span>
-                <input
-                  className="calc-input"
-                  type="number"
-                  min={1}
-                  value={formState.openingHandSize}
-                  onChange={(event) => {
-                    setFormState((current) => ({
-                      ...current,
-                      openingHandSize: readInteger(event.target.value),
-                    }))
-                  }}
-                />
-              </label>
-              <label className="calc-field">
-                <span>One-card starters</span>
-                <input
-                  className="calc-input"
-                  type="number"
-                  min={0}
-                  value={formState.oneCardStarterCopies}
-                  onChange={(event) => {
-                    setFormState((current) => ({
-                      ...current,
-                      oneCardStarterCopies: readInteger(event.target.value),
-                    }))
-                  }}
-                />
-              </label>
-              <div className="calc-stat">
-                <span>Unnamed filler cards</span>
-                <strong>{fillerCards}</strong>
-              </div>
-            </div>
-          </section>
-
-          <section className="calc-panel">
-            <div className="calc-section-head">
-              <div>
-                <h2>Combo pools</h2>
-                <p>
-                  Add the card groups used by your multi-card starter lines.
-                  Keep these disjoint from the one-card starter count above.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="calc-button"
-                onClick={() => {
-                  const nextPoolId = createId('combo-pool')
-                  setFormState((current) => ({
-                    ...current,
-                    comboPools: [
-                      ...current.comboPools,
-                      {
-                        id: nextPoolId,
-                        label: `Pool ${current.comboPools.length + 1}`,
-                        copies: 0,
-                      },
-                    ],
-                    comboRecipes: current.comboRecipes.map((recipe) => ({
-                      ...recipe,
-                      requirements: {
-                        ...recipe.requirements,
-                        [nextPoolId]: 0,
-                      },
-                    })),
-                  }))
-                }}
-              >
-                Add pool
-              </button>
-            </div>
-
-            <div className="calc-stack">
-              {formState.comboPools.length === 0 ? (
-                <p className="calc-empty">No combo pools yet.</p>
-              ) : (
-                formState.comboPools.map((pool) => (
-                  <div className="calc-row" key={pool.id}>
-                    <label className="calc-field">
-                      <span>Pool name</span>
-                      <input
-                        className="calc-input"
-                        value={pool.label}
-                        onChange={(event) => {
-                          setFormState((current) => ({
-                            ...current,
-                            comboPools: current.comboPools.map((entry) =>
-                              entry.id === pool.id
-                                ? { ...entry, label: event.target.value }
-                                : entry,
-                            ),
-                          }))
-                        }}
-                      />
-                    </label>
-                    <label className="calc-field calc-field-small">
-                      <span>Copies</span>
-                      <input
-                        className="calc-input"
-                        type="number"
-                        min={0}
-                        value={pool.copies}
-                        onChange={(event) => {
-                          setFormState((current) => ({
-                            ...current,
-                            comboPools: current.comboPools.map((entry) =>
-                              entry.id === pool.id
-                                ? { ...entry, copies: readInteger(event.target.value) }
-                                : entry,
-                            ),
-                          }))
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="calc-button calc-button-subtle"
-                      onClick={() => {
-                        setFormState((current) => ({
-                          ...current,
-                          comboPools: current.comboPools.filter(
-                            (entry) => entry.id !== pool.id,
-                          ),
-                          comboRecipes: current.comboRecipes.map((recipe) => {
-                            const nextRequirements = { ...recipe.requirements }
-                            delete nextRequirements[pool.id]
-                            return {
-                              ...recipe,
-                              requirements: nextRequirements,
-                            }
-                          }),
-                        }))
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="calc-panel">
-            <div className="calc-section-head">
-              <div>
-                <h2>Starter recipes</h2>
-                <p>
-                  Each row is one playable line. Enter how many cards from each
-                  pool that line needs.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="calc-button"
-                onClick={() => {
-                  setFormState((current) => ({
-                    ...current,
-                    comboRecipes: [
-                      ...current.comboRecipes,
-                      {
-                        id: createId('recipe'),
-                        label: `Combo ${current.comboRecipes.length + 1}`,
-                        requirements: Object.fromEntries(
-                          current.comboPools.map((pool) => [pool.id, 0]),
-                        ),
-                      },
-                    ],
-                  }))
-                }}
-              >
-                Add recipe
-              </button>
-            </div>
-
-            {formState.comboRecipes.length === 0 ? (
-              <p className="calc-empty">No multi-card lines yet.</p>
-            ) : (
-              <div className="calc-table-wrap">
-                <table className="calc-table">
-                  <thead>
-                    <tr>
-                      <th>Recipe</th>
-                      {formState.comboPools.map((pool) => (
-                        <th key={pool.id}>{pool.label}</th>
-                      ))}
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {formState.comboRecipes.map((recipe) => (
-                      <tr key={recipe.id}>
-                        <td>
-                          <input
-                            className="calc-input"
-                            value={recipe.label}
-                            onChange={(event) => {
-                              setFormState((current) => ({
-                                ...current,
-                                comboRecipes: current.comboRecipes.map((entry) =>
-                                  entry.id === recipe.id
-                                    ? { ...entry, label: event.target.value }
-                                    : entry,
-                                ),
-                              }))
-                            }}
-                          />
-                        </td>
-                        {formState.comboPools.map((pool) => (
-                          <td key={pool.id}>
-                            <input
-                              className="calc-input"
-                              type="number"
-                              min={0}
-                              value={recipe.requirements[pool.id] ?? 0}
-                              onChange={(event) => {
-                                setFormState((current) => ({
-                                  ...current,
-                                  comboRecipes: current.comboRecipes.map((entry) =>
-                                    entry.id === recipe.id
-                                      ? {
-                                          ...entry,
-                                          requirements: {
-                                            ...entry.requirements,
-                                            [pool.id]: readInteger(event.target.value),
-                                          },
-                                        }
-                                      : entry,
-                                  ),
-                                }))
-                              }}
-                            />
-                          </td>
-                        ))}
-                        <td className="calc-table-action">
-                          <button
-                            type="button"
-                            className="calc-button calc-button-subtle"
-                            onClick={() => {
-                              setFormState((current) => ({
-                                ...current,
-                                comboRecipes: current.comboRecipes.filter(
-                                  (entry) => entry.id !== recipe.id,
-                                ),
-                              }))
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className="calc-panel">
-            <div className="calc-section-head">
-              <div>
-                <h2>Opening draw effects</h2>
-                <p>
-                  Use this for cards like Pot of Extravagance that let you see
-                  extra cards before committing to your line.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="calc-button"
-                onClick={() => {
-                  setFormState((current) => ({
-                    ...current,
-                    drawEffects: [
-                      ...current.drawEffects,
-                      {
-                        id: createId('draw-effect'),
-                        label: `Draw effect ${current.drawEffects.length + 1}`,
-                        copies: 0,
-                        drawsPerActivation: 1,
-                        maxActivations: 1,
-                      },
-                    ],
-                  }))
-                }}
-              >
-                Add draw card
-              </button>
-            </div>
-
-            <div className="calc-stack">
-              {formState.drawEffects.length === 0 ? (
-                <p className="calc-empty">No draw effects yet.</p>
-              ) : (
-                formState.drawEffects.map((effect) => (
-                  <div className="calc-row calc-row-dense" key={effect.id}>
-                    <label className="calc-field">
-                      <span>Name</span>
-                      <input
-                        className="calc-input"
-                        value={effect.label}
-                        onChange={(event) => {
-                          setFormState((current) => ({
-                            ...current,
-                            drawEffects: current.drawEffects.map((entry) =>
-                              entry.id === effect.id
-                                ? { ...entry, label: event.target.value }
-                                : entry,
-                            ),
-                          }))
-                        }}
-                      />
-                    </label>
-                    <label className="calc-field calc-field-small">
-                      <span>Copies</span>
-                      <input
-                        className="calc-input"
-                        type="number"
-                        min={0}
-                        value={effect.copies}
-                        onChange={(event) => {
-                          setFormState((current) => ({
-                            ...current,
-                            drawEffects: current.drawEffects.map((entry) =>
-                              entry.id === effect.id
-                                ? { ...entry, copies: readInteger(event.target.value) }
-                                : entry,
-                            ),
-                          }))
-                        }}
-                      />
-                    </label>
-                    <label className="calc-field calc-field-small">
-                      <span>Cards drawn</span>
-                      <input
-                        className="calc-input"
-                        type="number"
-                        min={1}
-                        value={effect.drawsPerActivation}
-                        onChange={(event) => {
-                          setFormState((current) => ({
-                            ...current,
-                            drawEffects: current.drawEffects.map((entry) =>
-                              entry.id === effect.id
-                                ? {
-                                    ...entry,
-                                    drawsPerActivation: readInteger(event.target.value),
-                                  }
-                                : entry,
-                            ),
-                          }))
-                        }}
-                      />
-                    </label>
-                    <label className="calc-field calc-field-small">
-                      <span>Max uses</span>
-                      <input
-                        className="calc-input"
-                        type="number"
-                        min={1}
-                        value={effect.maxActivations}
-                        onChange={(event) => {
-                          setFormState((current) => ({
-                            ...current,
-                            drawEffects: current.drawEffects.map((entry) =>
-                              entry.id === effect.id
-                                ? {
-                                    ...entry,
-                                    maxActivations: readInteger(event.target.value),
-                                  }
-                                : entry,
-                            ),
-                          }))
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="calc-button calc-button-subtle"
-                      onClick={() => {
-                        setFormState((current) => ({
-                          ...current,
-                          drawEffects: current.drawEffects.filter(
-                            (entry) => entry.id !== effect.id,
-                          ),
-                        }))
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </div>
-
-        <aside className="calc-sidebar">
-          <section className="calc-panel">
-            <div className="calc-section-head">
-              <h2>Results</h2>
-              <p>These are exact probabilities, not Monte Carlo estimates.</p>
-            </div>
-
-            {'error' in calculation ? (
-              <p className="calc-error">{calculation.error}</p>
-            ) : (
-              <>
-                <div className="calc-result-grid">
-                  <div className="calc-stat">
-                    <span>Playable opening hand</span>
-                    <strong>{formatPercent(calculation.result.openingHandProbability)}</strong>
-                  </div>
-                  <div className="calc-stat">
-                    <span>After draw effects</span>
-                    <strong>{formatPercent(calculation.result.resolvedProbability)}</strong>
-                  </div>
-                  <div className="calc-stat">
-                    <span>Gain from draw effects</span>
-                    <strong>{formatSignedPercent(calculation.result.drawEffectGain)}</strong>
-                  </div>
-                  <div className="calc-stat">
-                    <span>Unnamed filler cards</span>
-                    <strong>{calculation.result.fillerCards}</strong>
-                  </div>
-                </div>
-
-                <div className="calc-table-wrap">
-                  <table className="calc-table">
-                    <thead>
-                      <tr>
-                        <th>Starter line</th>
-                        <th>Open 5</th>
-                        <th>After draws</th>
-                        <th>Gain</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {calculation.result.recipeProbabilities.map((recipe) => (
-                        <tr key={recipe.recipeId}>
-                          <td>{recipe.label}</td>
-                          <td>{formatPercent(recipe.openingHandProbability)}</td>
-                          <td>{formatPercent(recipe.resolvedProbability)}</td>
-                          <td>
-                            {formatSignedPercent(
-                              recipe.resolvedProbability - recipe.openingHandProbability,
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </section>
-
-          <section className="calc-panel">
-            <div className="calc-section-head">
-              <h2>Model assumptions</h2>
-            </div>
-            <ul className="calc-notes">
-              <li>Card pools are disjoint. Count each real card in exactly one pool.</li>
-              <li>
-                The one-card starter count is treated as a single pool that
-                automatically creates its own starter line.
-              </li>
-              <li>
-                Draw effects are resolved optimally to maximize the chance of
-                reaching a starter line.
-              </li>
-              <li>
-                Each draw effect currently assumes a simple activation cost of
-                spending one copy of that card from hand.
-              </li>
-            </ul>
-          </section>
-        </aside>
+        )}
       </section>
     </main>
   )
 }
 
-function buildCalculationState(formState: CalculatorFormState) {
-  try {
-    const input: OpeningHandCalculationInput = {
-      deckSize: formState.deckSize,
-      openingHandSize: formState.openingHandSize,
-      pools: [
-        {
-          id: 'one-card-starters',
-          label: 'One-card starters',
-          copies: formState.oneCardStarterCopies,
-        },
-        ...formState.comboPools.map((pool) => ({
-          id: pool.id,
-          label: pool.label.trim() || 'Unnamed combo pool',
-          copies: pool.copies,
-        })),
-        ...formState.drawEffects.map((effect) => ({
-          id: effect.id,
-          label: effect.label.trim() || 'Unnamed draw effect',
-          copies: effect.copies,
-          drawEffect: {
-            drawsPerActivation: effect.drawsPerActivation,
-            maxActivations: effect.maxActivations,
-          },
-        })),
-      ],
-      recipes: [
-        {
-          id: 'one-card-line',
-          label: 'Any one-card starter',
-          requirements: [{ poolId: 'one-card-starters', count: 1 }],
-        },
-        ...formState.comboRecipes.map((recipe) => ({
-          id: recipe.id,
-          label: recipe.label.trim() || 'Unnamed combo line',
-          requirements: formState.comboPools.map((pool) => ({
-            poolId: pool.id,
-            count: recipe.requirements[pool.id] ?? 0,
-          })),
-        })),
-      ],
-    }
+function buildDeckView(
+  parsedDeck: ReturnType<typeof parseYdk>,
+  lookup: Map<string, DeckCardLookup>,
+  sourceName: string | null,
+): DeckView {
+  const sections = SECTION_ORDER.map((section) => {
+    const cards = collapseDeckSection(parsedDeck.sections[section]).map(
+      (entry) => {
+        const lookupEntry = lookup.get(entry.id)
+
+        if (!lookupEntry || lookupEntry.status === 'missing') {
+          return {
+            id: entry.id,
+            copies: entry.copies,
+            status: 'missing' as const,
+            name: `Unknown card ${entry.id}`,
+            imageUrl: null,
+            details: [
+              lookupEntry?.message ??
+                `No card data was returned for password ${entry.id}.`,
+            ],
+          }
+        }
+
+        return {
+          id: entry.id,
+          copies: entry.copies,
+          status: 'ready' as const,
+          name: getPreferredCardName(lookupEntry.card, entry.id),
+          imageUrl: getCardImageUrl(entry.id),
+          details: (lookupEntry.card.text.types ?? '')
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 2),
+        }
+      },
+    )
 
     return {
-      result: calculateOpeningHandProbabilities(input),
+      key: section,
+      label: SECTION_LABELS[section],
+      totalCards: parsedDeck.sections[section].length,
+      entries: cards,
     }
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error
-          ? error.message
-          : 'The calculator could not build a valid probability model.',
-    }
+  })
+
+  return {
+    createdBy: parsedDeck.createdBy,
+    importedAt: new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date()),
+    sourceName,
+    warnings: parsedDeck.warnings,
+    uniqueCards: lookup.size,
+    missingCards: [...lookup.values()].filter(
+      (entry) => entry.status === 'missing',
+    ).length,
+    sections,
   }
 }
 
-function readInteger(value: string) {
-  const parsed = Number.parseInt(value, 10)
-  return Number.isFinite(parsed) ? parsed : 0
+function getTotalCards(deckView: DeckView) {
+  return deckView.sections.reduce((sum, section) => sum + section.totalCards, 0)
 }
 
-function formatPercent(value: number) {
-  return `${(value * 100).toFixed(2)}%`
+function getDeckImportLimitError(
+  parsedDeck: ReturnType<typeof parseYdk>,
+  deckText: string,
+) {
+  const textBytes = new TextEncoder().encode(deckText).length
+  if (textBytes > MAX_UPLOAD_BYTES) {
+    return `The pasted deck is too large. Keep YDK text under ${formatByteLimit(
+      MAX_UPLOAD_BYTES,
+    )}.`
+  }
+
+  const totalCards = getDeckCardCount(parsedDeck)
+  if (totalCards > MAX_DECK_CARD_LINES) {
+    return `This import lists ${totalCards} cards. The viewer currently accepts at most ${MAX_DECK_CARD_LINES} card lines per deck.`
+  }
+
+  const uniqueCards = getUniqueDeckCardCount(parsedDeck)
+  if (uniqueCards > MAX_UNIQUE_CARD_IDS) {
+    return `This import has ${uniqueCards} unique passwords. The viewer currently accepts at most ${MAX_UNIQUE_CARD_IDS} unique cards per deck.`
+  }
+
+  return null
 }
 
-function formatSignedPercent(value: number) {
-  const sign = value >= 0 ? '+' : ''
-  return `${sign}${(value * 100).toFixed(2)}%`
+function formatByteLimit(bytes: number) {
+  return `${Math.round(bytes / 1024)} KB`
 }
 
-function createId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
 }
