@@ -190,16 +190,13 @@ export function StarterRateExperiencePage() {
             >
               <ConfigHero model={model} />
               <div className="analysis-grid">
-                <aside className="analysis-rail">
-                  <StarterCountPanel model={model} />
-                  <RateBoard model={model} />
-                  <DeckSummaryPanel model={model} />
-                  <DeckLedgerPanel model={model} />
-                </aside>
-
                 <section className="analysis-canvas">
+                  <StarterCountPanel model={model} />
                   <DeckSectionViewer model={model} />
                 </section>
+                <aside className="analysis-output-stack">
+                  <RateBoard model={model} />
+                </aside>
               </div>
             </motion.div>
           )}
@@ -248,7 +245,6 @@ function useDeckWorkbench() {
 
   const mainSection =
     deckView?.sections.find((section) => section.key === 'main') ?? null
-  const mainDeckEntries = mainSection?.entries ?? []
   const mainDeckSize = mainSection?.totalCards ?? 0
 
   useEffect(() => {
@@ -407,8 +403,7 @@ function useDeckWorkbench() {
   }
 
   function updateStarterCopies(nextValue: number) {
-    const clamped = Math.max(0, Math.min(mainDeckSize, Math.floor(nextValue)))
-    setStarterCopies(clamped)
+    setStarterCopies(clampStarterCopies(nextValue, mainDeckSize))
   }
 
   return {
@@ -421,7 +416,6 @@ function useDeckWorkbench() {
     importDeck,
     isLoading,
     loadSampleDeck,
-    mainDeckEntries,
     mainDeckSize,
     setDraftText,
     setStage,
@@ -599,8 +593,8 @@ function ConfigHero({ model }: { model: WorkbenchModel }) {
   return (
     <section className="surface-panel config-hero analysis-hero">
       <div className="analysis-toolbar-title">
-        <p className="panel-kicker">One-card starter board</p>
-        <h2>Deck analysis</h2>
+        <p className="panel-kicker">Starter-rate workspace</p>
+        <h2>Opening-hand analysis</h2>
       </div>
 
       <div className="analysis-toolbar-stats">
@@ -634,16 +628,20 @@ function ConfigHero({ model }: { model: WorkbenchModel }) {
 }
 
 function StarterCountPanel({ model }: { model: WorkbenchModel }) {
-  const commonCounts = [6, 9, 12, 15, 18].filter(
-    (count) => count <= model.mainDeckSize,
+  const [draftValue, setDraftValue] = useState(
+    model.starterCopies > 0 ? String(model.starterCopies) : '',
   )
+
+  useEffect(() => {
+    setDraftValue(model.starterCopies > 0 ? String(model.starterCopies) : '')
+  }, [model.starterCopies])
 
   return (
     <section className="surface-panel side-panel starter-count-panel">
       <div className="panel-header-row compact">
         <div>
           <p className="panel-kicker">Starter Input</p>
-          <h2>How many one-card starters are you running?</h2>
+          <h2>Set the live one-card starter count.</h2>
         </div>
       </div>
 
@@ -652,90 +650,65 @@ function StarterCountPanel({ model }: { model: WorkbenchModel }) {
         <input
           id="starter-count-input"
           className="starter-count-input"
-          type="number"
-          min={0}
-          max={model.mainDeckSize}
-          step={1}
-          value={model.starterCopies}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          placeholder="0"
+          value={draftValue}
           onChange={(event) => {
-            const nextValue = Number(event.target.value)
-            model.updateStarterCopies(
-              Number.isFinite(nextValue) ? nextValue : 0,
+            const nextValue = event.target.value.replace(/\D+/g, '')
+            if (nextValue === '') {
+              setDraftValue('')
+              model.updateStarterCopies(0)
+              return
+            }
+
+            const clampedValue = clampStarterCopies(
+              Number(nextValue),
+              model.mainDeckSize,
             )
+            setDraftValue(String(clampedValue))
+            model.updateStarterCopies(clampedValue)
           }}
         />
       </label>
-
-      <input
-        className="starter-count-range"
-        type="range"
-        min={0}
-        max={model.mainDeckSize}
-        step={1}
-        value={model.starterCopies}
-        onChange={(event) => {
-          model.updateStarterCopies(Number(event.target.value))
-        }}
-      />
-
-      <div className="preset-row">
-        {commonCounts.map((count) => (
-          <button
-            key={count}
-            className={`preset-chip ${
-              model.starterCopies === count ? 'is-active' : ''
-            }`}
-            type="button"
-            onClick={() => model.updateStarterCopies(count)}
-          >
-            {count}
-          </button>
-        ))}
-      </div>
-
-      <p className="starter-count-caption">
-        The calculation uses your main-deck size of {model.mainDeckSize} and
-        assumes any of these {model.starterCopies} copies count as a valid
-        one-card starter.
-      </p>
     </section>
   )
 }
 
 function RateBoard({ model }: { model: WorkbenchModel }) {
   const startRate = model.combinedStarterResult?.openingHandProbability ?? 0
-  const whiffRate = model.combinedStarterResult ? 1 - startRate : 0
+  const distribution = getStarterOpeningDistribution(
+    model.mainDeckSize,
+    model.starterCopies,
+    model.combinedStarterResult?.openingHandSize ?? 5,
+  )
 
   return (
     <section className="surface-panel rate-panel">
-      <p className="panel-kicker">Start Rate</p>
+      <p className="panel-kicker">Opening Hand Rate</p>
       <div className="rate-panel-main">
         <strong>{formatPercent(startRate)}</strong>
         <span>
           {model.starterCopies === 0
             ? 'Enter a starter count above to calculate.'
-            : `${model.starterCopies} one-card starter copies in a ${model.mainDeckSize}-card main deck.`}
+            : 'Breakdown of successful hands by how many starters they open.'}
         </span>
       </div>
 
       <div className="rate-grid">
         <article>
-          <p>Miss rate</p>
-          <strong>{formatPercent(whiffRate)}</strong>
+          <p>1 starter</p>
+          <strong>{formatPercent(distribution.exactlyOne)}</strong>
         </article>
         <article>
-          <p>Main deck</p>
-          <strong>{model.mainDeckSize}</strong>
+          <p>2 starters</p>
+          <strong>{formatPercent(distribution.exactlyTwo)}</strong>
         </article>
         <article>
-          <p>Starter copies</p>
-          <strong>{model.starterCopies}</strong>
-        </article>
-        <article>
-          <p>Source</p>
-          <strong>
-            {model.deckView?.sourceName ?? model.sourceName ?? 'Pasted deck'}
-          </strong>
+          <p>3+ starters</p>
+          <strong>{formatPercent(distribution.threeOrMore)}</strong>
         </article>
       </div>
     </section>
@@ -747,6 +720,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
   const [sortKey, setSortKey] = useState<DeckSortKey>('copies')
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
   const [viewMode, setViewMode] = useState<DeckViewMode>('table')
+  const [isExpanded, setIsExpanded] = useState(false)
 
   if (!model.deckView) {
     return (
@@ -768,6 +742,10 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
   )
   const compactViewAvailable = activeSection === 'main'
   const showCompactView = compactViewAvailable && viewMode === 'compact-main'
+  const previewDeckSection =
+    model.deckView.sections.find((section) => section.key === 'main') ??
+    activeDeckSection
+  const previewEntries = previewDeckSection.entries.slice(0, 5)
 
   function handleSectionChange(section: DeckSection) {
     setActiveSection(section)
@@ -790,295 +768,285 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
   }
 
   return (
-    <section className="surface-panel deck-view-panel">
+    <section
+      className={`surface-panel deck-view-panel ${
+        isExpanded ? 'is-expanded' : 'is-collapsed'
+      }`}
+    >
       <div className="panel-header-row">
         <div>
-          <p className="panel-kicker">Deck Viewer</p>
-          <h2>Review the uploaded deck while you tune the count.</h2>
+          <p className="panel-kicker">Deck Reference</p>
+          <h2>Open the uploaded list only when you need a deck check.</h2>
         </div>
-        <div className="section-tabs" role="tablist" aria-label="Deck sections">
-          {SECTION_ORDER.map((section) => {
-            const totalCards =
-              model.deckView?.sections.find((entry) => entry.key === section)
-                ?.totalCards ?? 0
-
-            return (
-              <button
-                key={section}
-                className={`section-tab ${
-                  activeSection === section ? 'is-active' : ''
-                }`}
-                type="button"
-                role="tab"
-                aria-selected={activeSection === section}
-                onClick={() => handleSectionChange(section)}
-              >
-                {SECTION_LABELS[section]} · {totalCards}
-              </button>
-            )
-          })}
-        </div>
+        <button
+          className="secondary-button deck-reference-toggle"
+          type="button"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((current) => !current)}
+        >
+          {isExpanded ? 'Hide deck list' : 'Open deck list'}
+        </button>
       </div>
 
       <p className="starter-grid-note">
-        This page is for reference and verification. The calculation panel uses
-        the number input, while the deck viewer keeps the imported list visible.
+        Stage two stays focused on the opening-hand rate. Open the imported deck
+        only when you need to verify names, counts, or section splits before
+        adding combo-specific rules later.
       </p>
 
       <div className="deck-stage-meta">
         <div>
-          <span>Showing</span>
-          <strong>{activeDeckSection.label}</strong>
+          <span>Main deck</span>
+          <strong>{model.mainDeckSize}</strong>
         </div>
         <div>
-          <span>Total cards</span>
-          <strong>{activeDeckSection.totalCards}</strong>
+          <span>Unique cards</span>
+          <strong>{model.deckView.uniqueCards}</strong>
         </div>
         <div>
-          <span>Unique entries</span>
-          <strong>{activeDeckSection.entries.length}</strong>
+          <span>Missing cards</span>
+          <strong>{model.deckView.missingCards}</strong>
         </div>
       </div>
 
-      <div className="deck-view-toolbar">
-        <div
-          className="deck-view-mode-toggle"
-          role="tablist"
-          aria-label="Deck view mode"
-        >
-          <button
-            className={`section-tab ${viewMode === 'table' ? 'is-active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={viewMode === 'table'}
-            onClick={() => setViewMode('table')}
+      {isExpanded ? (
+        <div className="deck-reference-shell">
+          <div
+            className="section-tabs"
+            role="tablist"
+            aria-label="Deck sections"
           >
-            Sortable table
-          </button>
-          <button
-            className={`section-tab ${showCompactView ? 'is-active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={showCompactView}
-            disabled={!compactViewAvailable}
-            title={
-              compactViewAvailable
-                ? 'Show a compact text list for the main deck.'
-                : 'Compact mode is only available for the main deck.'
-            }
-            onClick={() => {
-              if (compactViewAvailable) {
-                setViewMode('compact-main')
-              }
-            }}
-          >
-            Main deck only
-          </button>
-        </div>
-        <p className="deck-view-toolbar-note">
-          {showCompactView
-            ? 'Extreme-density text mode for the main deck.'
-            : 'Click column headers to sort the current section.'}
-        </p>
-      </div>
+            {SECTION_ORDER.map((section) => {
+              const totalCards =
+                model.deckView?.sections.find((entry) => entry.key === section)
+                  ?.totalCards ?? 0
 
-      {showCompactView ? (
-        <div className="deck-compact-list" aria-label="Compact main deck list">
-          {sortedEntries.map((entry) => (
-            <div
-              className="deck-compact-line"
-              key={`${activeSection}-${entry.id}`}
-            >
-              <span className="deck-compact-copies">{entry.copies}x</span>
-              <span className="deck-compact-name">{entry.name}</span>
-              <span className="deck-compact-id">{entry.id}</span>
+              return (
+                <button
+                  key={section}
+                  className={`section-tab ${
+                    activeSection === section ? 'is-active' : ''
+                  }`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSection === section}
+                  onClick={() => handleSectionChange(section)}
+                >
+                  {SECTION_LABELS[section]} · {totalCards}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="deck-stage-meta deck-stage-meta-secondary">
+            <div>
+              <span>Showing</span>
+              <strong>{activeDeckSection.label}</strong>
             </div>
-          ))}
+            <div>
+              <span>Total cards</span>
+              <strong>{activeDeckSection.totalCards}</strong>
+            </div>
+            <div>
+              <span>Unique entries</span>
+              <strong>{activeDeckSection.entries.length}</strong>
+            </div>
+          </div>
+
+          <div className="deck-view-toolbar">
+            <div
+              className="deck-view-mode-toggle"
+              role="tablist"
+              aria-label="Deck view mode"
+            >
+              <button
+                className={`section-tab ${
+                  viewMode === 'table' ? 'is-active' : ''
+                }`}
+                type="button"
+                role="tab"
+                aria-selected={viewMode === 'table'}
+                onClick={() => setViewMode('table')}
+              >
+                Sortable table
+              </button>
+              <button
+                className={`section-tab ${showCompactView ? 'is-active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={showCompactView}
+                disabled={!compactViewAvailable}
+                title={
+                  compactViewAvailable
+                    ? 'Show a compact text list for the main deck.'
+                    : 'Compact mode is only available for the main deck.'
+                }
+                onClick={() => {
+                  if (compactViewAvailable) {
+                    setViewMode('compact-main')
+                  }
+                }}
+              >
+                Main deck only
+              </button>
+            </div>
+            <p className="deck-view-toolbar-note">
+              {showCompactView
+                ? 'Extreme-density text mode for the main deck.'
+                : 'Click column headers to sort the current section.'}
+            </p>
+          </div>
+
+          {showCompactView ? (
+            <div
+              className="deck-compact-list"
+              aria-label="Compact main deck list"
+            >
+              {sortedEntries.map((entry) => (
+                <div
+                  className="deck-compact-line"
+                  key={`${activeSection}-${entry.id}`}
+                >
+                  <span className="deck-compact-copies">{entry.copies}x</span>
+                  <span className="deck-compact-name">{entry.name}</span>
+                  <span className="deck-compact-id">{entry.id}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="deck-table-shell">
+              <table className="deck-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Art</th>
+                    <th scope="col">
+                      <button
+                        className="deck-sort-button"
+                        type="button"
+                        onClick={() => handleSortChange('name')}
+                      >
+                        Card
+                        <span aria-hidden="true">
+                          {sortKey === 'name'
+                            ? getSortDirectionMark(sortDirection)
+                            : '↕'}
+                        </span>
+                      </button>
+                    </th>
+                    <th scope="col">
+                      <button
+                        className="deck-sort-button"
+                        type="button"
+                        onClick={() => handleSortChange('copies')}
+                      >
+                        Copies
+                        <span aria-hidden="true">
+                          {sortKey === 'copies'
+                            ? getSortDirectionMark(sortDirection)
+                            : '↕'}
+                        </span>
+                      </button>
+                    </th>
+                    <th scope="col">
+                      <button
+                        className="deck-sort-button"
+                        type="button"
+                        onClick={() => handleSortChange('id')}
+                      >
+                        Password
+                        <span aria-hidden="true">
+                          {sortKey === 'id'
+                            ? getSortDirectionMark(sortDirection)
+                            : '↕'}
+                        </span>
+                      </button>
+                    </th>
+                    <th scope="col">
+                      <button
+                        className="deck-sort-button"
+                        type="button"
+                        onClick={() => handleSortChange('details')}
+                      >
+                        Notes
+                        <span aria-hidden="true">
+                          {sortKey === 'details'
+                            ? getSortDirectionMark(sortDirection)
+                            : '↕'}
+                        </span>
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedEntries.map((entry) => (
+                    <tr key={`${activeSection}-${entry.id}`}>
+                      <td className="deck-table-art-cell">
+                        <div className="deck-list-art">
+                          {entry.imageUrl ? (
+                            <img
+                              alt={entry.name}
+                              height={350}
+                              loading="lazy"
+                              src={entry.imageUrl}
+                              width={240}
+                            />
+                          ) : (
+                            <div className="starter-card-fallback">
+                              {entry.id}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="deck-list-content">
+                          <strong>{entry.name}</strong>
+                        </div>
+                      </td>
+                      <td className="deck-list-count">
+                        <span className="deck-list-copies">
+                          {entry.copies}x
+                        </span>
+                      </td>
+                      <td className="deck-table-id-cell">
+                        {entry.status === 'missing'
+                          ? 'Missing card data'
+                          : entry.id}
+                      </td>
+                      <td>
+                        <div className="deck-list-meta">
+                          {entry.details.length > 0 ? (
+                            <span className="deck-list-detail">
+                              {entry.details.join(' · ')}
+                            </span>
+                          ) : (
+                            <span className="deck-list-detail">
+                              No extra card text cached.
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="deck-table-shell">
-          <table className="deck-table">
-            <thead>
-              <tr>
-                <th scope="col">Art</th>
-                <th scope="col">
-                  <button
-                    className="deck-sort-button"
-                    type="button"
-                    onClick={() => handleSortChange('name')}
-                  >
-                    Card
-                    <span aria-hidden="true">
-                      {sortKey === 'name'
-                        ? getSortDirectionMark(sortDirection)
-                        : '↕'}
-                    </span>
-                  </button>
-                </th>
-                <th scope="col">
-                  <button
-                    className="deck-sort-button"
-                    type="button"
-                    onClick={() => handleSortChange('copies')}
-                  >
-                    Copies
-                    <span aria-hidden="true">
-                      {sortKey === 'copies'
-                        ? getSortDirectionMark(sortDirection)
-                        : '↕'}
-                    </span>
-                  </button>
-                </th>
-                <th scope="col">
-                  <button
-                    className="deck-sort-button"
-                    type="button"
-                    onClick={() => handleSortChange('id')}
-                  >
-                    Password
-                    <span aria-hidden="true">
-                      {sortKey === 'id'
-                        ? getSortDirectionMark(sortDirection)
-                        : '↕'}
-                    </span>
-                  </button>
-                </th>
-                <th scope="col">
-                  <button
-                    className="deck-sort-button"
-                    type="button"
-                    onClick={() => handleSortChange('details')}
-                  >
-                    Notes
-                    <span aria-hidden="true">
-                      {sortKey === 'details'
-                        ? getSortDirectionMark(sortDirection)
-                        : '↕'}
-                    </span>
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedEntries.map((entry) => (
-                <tr key={`${activeSection}-${entry.id}`}>
-                  <td className="deck-table-art-cell">
-                    <div className="deck-list-art">
-                      {entry.imageUrl ? (
-                        <img
-                          alt={entry.name}
-                          height={350}
-                          loading="lazy"
-                          src={entry.imageUrl}
-                          width={240}
-                        />
-                      ) : (
-                        <div className="starter-card-fallback">{entry.id}</div>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="deck-list-content">
-                      <strong>{entry.name}</strong>
-                    </div>
-                  </td>
-                  <td className="deck-list-count">
-                    <span className="deck-list-copies">{entry.copies}x</span>
-                  </td>
-                  <td className="deck-table-id-cell">
-                    {entry.status === 'missing'
-                      ? 'Missing card data'
-                      : entry.id}
-                  </td>
-                  <td>
-                    <div className="deck-list-meta">
-                      {entry.details.length > 0 ? (
-                        <span className="deck-list-detail">
-                          {entry.details.join(' · ')}
-                        </span>
-                      ) : (
-                        <span className="deck-list-detail">
-                          No extra card text cached.
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="deck-reference-collapsed">
+          <div className="deck-reference-peek">
+            {previewEntries.map((entry) => (
+              <span className="deck-reference-pill" key={`peek-${entry.id}`}>
+                {entry.copies}x {entry.name}
+              </span>
+            ))}
+          </div>
+          <p className="deck-reference-collapsed-note">
+            Deck preview stays collapsed by default so the starter-rate math
+            remains the primary job on this page.
+          </p>
         </div>
       )}
-    </section>
-  )
-}
-
-function DeckSummaryPanel({ model }: { model: WorkbenchModel }) {
-  return (
-    <section className="surface-panel side-panel">
-      <div className="panel-header-row compact">
-        <div>
-          <p className="panel-kicker">Deck Shape</p>
-          <h2>Section totals</h2>
-        </div>
-      </div>
-
-      <div className="summary-grid">
-        {SECTION_ORDER.map((section) => {
-          const totalCards =
-            model.deckView?.sections.find((entry) => entry.key === section)
-              ?.totalCards ?? 0
-
-          return (
-            <article className="summary-card" key={section}>
-              <p>{SECTION_LABELS[section]}</p>
-              <strong>{totalCards}</strong>
-            </article>
-          )
-        })}
-      </div>
-
-      {model.deckView?.warnings.length ? (
-        <div className="warning-stack">
-          {model.deckView.warnings.map((warning) => (
-            <p key={warning}>{warning}</p>
-          ))}
-        </div>
-      ) : null}
-    </section>
-  )
-}
-
-function DeckLedgerPanel({ model }: { model: WorkbenchModel }) {
-  return (
-    <section className="surface-panel side-panel">
-      <div className="panel-header-row compact">
-        <div>
-          <p className="panel-kicker">Deck Ledger</p>
-          <h2>Import details</h2>
-        </div>
-      </div>
-
-      <dl className="ledger-list">
-        <div>
-          <dt>Source</dt>
-          <dd>
-            {model.deckView?.sourceName ?? model.sourceName ?? 'Not loaded'}
-          </dd>
-        </div>
-        <div>
-          <dt>Created by</dt>
-          <dd>{model.deckView?.createdBy ?? 'Unknown'}</dd>
-        </div>
-        <div>
-          <dt>Imported</dt>
-          <dd>{model.deckView?.importedAt ?? 'Waiting for deck'}</dd>
-        </div>
-        <div>
-          <dt>Missing cards</dt>
-          <dd>{model.deckView?.missingCards ?? 0}</dd>
-        </div>
-      </dl>
     </section>
   )
 }
@@ -1185,8 +1153,78 @@ function formatPercent(value: number) {
   }).format(value)
 }
 
+function getStarterOpeningDistribution(
+  deckSize: number,
+  starterCopies: number,
+  openingHandSize: number,
+) {
+  if (
+    deckSize <= 0 ||
+    starterCopies <= 0 ||
+    openingHandSize <= 0 ||
+    starterCopies > deckSize
+  ) {
+    return {
+      exactlyOne: 0,
+      exactlyTwo: 0,
+      threeOrMore: 0,
+    }
+  }
+
+  const totalHands = choose(deckSize, openingHandSize)
+  if (totalHands === 0) {
+    return {
+      exactlyOne: 0,
+      exactlyTwo: 0,
+      threeOrMore: 0,
+    }
+  }
+
+  const probabilityFor = (hits: number) => {
+    if (hits < 0 || hits > openingHandSize || hits > starterCopies) {
+      return 0
+    }
+
+    const missesNeeded = openingHandSize - hits
+    const nonStarterCopies = deckSize - starterCopies
+    if (missesNeeded > nonStarterCopies) {
+      return 0
+    }
+
+    return (
+      (choose(starterCopies, hits) * choose(nonStarterCopies, missesNeeded)) /
+      totalHands
+    )
+  }
+
+  const exactlyOne = probabilityFor(1)
+  const exactlyTwo = probabilityFor(2)
+  let threeOrMore = 0
+  for (
+    let hits = 3;
+    hits <= Math.min(openingHandSize, starterCopies);
+    hits += 1
+  ) {
+    threeOrMore += probabilityFor(hits)
+  }
+
+  return {
+    exactlyOne,
+    exactlyTwo,
+    threeOrMore,
+  }
+}
+
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === 'AbortError'
+}
+
+function clampStarterCopies(value: number, mainDeckSize: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.max(0, Math.min(mainDeckSize, Math.floor(value)))
 }
 
 function sortDeckEntries(
@@ -1223,4 +1261,22 @@ function sortDeckEntries(
 
 function getSortDirectionMark(direction: 'asc' | 'desc') {
   return direction === 'asc' ? '↑' : '↓'
+}
+
+function choose(n: number, k: number) {
+  if (k < 0 || k > n) {
+    return 0
+  }
+
+  const normalizedK = Math.min(k, n - k)
+  if (normalizedK === 0) {
+    return 1
+  }
+
+  let result = 1
+  for (let index = 1; index <= normalizedK; index += 1) {
+    result = (result * (n - normalizedK + index)) / index
+  }
+
+  return result
 }
