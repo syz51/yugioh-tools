@@ -18,13 +18,6 @@ export default function Header() {
           >
             Deck Viewer
           </Link>
-          <Link
-            to="/about"
-            className="site-link"
-            activeProps={{ className: 'site-link is-active' }}
-          >
-            About
-          </Link>
         </div>
 
         <ThemeToggle />
