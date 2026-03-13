@@ -1,17 +1,25 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import type { DeckCardLookup } from './ygocdb'
+import { DEFAULT_CARD_FETCH_CONCURRENCY } from './ygocdb'
+import { mapWithConcurrencyLimit } from './map-with-concurrency'
 
 type DeckCardLookupRecord = Partial<Record<string, DeckCardLookup>>
+const MAX_CARD_FETCH_CONCURRENCY = 16
 
 const lookupDeckCardsInput = z.object({
   cardIds: z.array(z.string().trim().min(1)).max(500),
+  concurrency: z.number().int().min(1).max(MAX_CARD_FETCH_CONCURRENCY).optional(),
 })
 
 export const getDeckCards = createServerFn({ method: 'POST' })
   .inputValidator(lookupDeckCardsInput)
   .handler(async ({ data }) => {
     const uniqueIds = [...new Set(data.cardIds)]
+    const fetchConcurrency = Math.min(
+      data.concurrency ?? DEFAULT_CARD_FETCH_CONCURRENCY,
+      MAX_CARD_FETCH_CONCURRENCY,
+    )
     if (uniqueIds.length === 0) {
       return {}
     }
@@ -43,10 +51,10 @@ export const getDeckCards = createServerFn({ method: 'POST' })
       return lookups
     }
 
-    const fetchedLookups = await Promise.all(
-      missingIds.map(
-        async (cardId) => [cardId, await loadDeckCardFromYgocdb(cardId)] as const,
-      ),
+    const fetchedLookups = await mapWithConcurrencyLimit(
+      missingIds,
+      fetchConcurrency,
+      async (cardId) => [cardId, await loadDeckCardFromYgocdb(cardId)] as const,
     )
 
     const cardsToCache = fetchedLookups.flatMap(([cardId, lookup]) =>
