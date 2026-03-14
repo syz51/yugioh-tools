@@ -746,6 +746,36 @@ code {
   gap: 12px;
 }
 
+.starter-config-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.starter-config-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.starter-config-summary {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 245, 232, 0.06);
+  border-radius: 8px;
+  background: rgba(255, 245, 232, 0.03);
+}
+
+.starter-config-summary strong {
+  font: 700 0.98rem/1.25 var(--headline-font);
+}
+
+.starter-config-summary span {
+  color: var(--text-dim);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .starter-config-group + .starter-config-group {
   margin-top: 4px;
   padding-top: 16px;
@@ -1353,6 +1383,10 @@ code {
 
   .starter-pick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .starter-config-tabs .section-tab {
+    flex: 1 1 0;
   }
 
   .deck-view-toolbar {

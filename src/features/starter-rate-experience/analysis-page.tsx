@@ -1,6 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { RateBoard, StarterCountPanel } from './components/analysis-panels'
-import { DeckSectionViewer } from './components/deck-section-viewer'
 import { ExperienceShell } from './components/experience-shell'
 import type { DeckAnalysisModel } from './types'
 
@@ -31,7 +30,6 @@ export function StarterRateAnalysisPage({
         <div className="analysis-grid">
           <section className="analysis-canvas">
             <StarterCountPanel model={model} />
-            <DeckSectionViewer model={model} />
           </section>
           <aside className="analysis-output-stack">
             <RateBoard model={model} />

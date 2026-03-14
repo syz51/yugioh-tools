@@ -2,12 +2,15 @@ import { useDeferredValue, useEffect, useState } from 'react'
 import { clampStarterCopies, formatPercent } from '../lib/utils'
 import type { DeckAnalysisModel } from '../types'
 
+type StarterConfigTab = 'one-card' | 'two-card'
+
 export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
   const [supplementDraftValue, setSupplementDraftValue] = useState(
     model.twoCardSupplementCopies > 0
       ? String(model.twoCardSupplementCopies)
       : '',
   )
+  const [activeTab, setActiveTab] = useState<StarterConfigTab>('one-card')
   const [starterSearchValue, setStarterSearchValue] = useState('')
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
   const deferredStarterSearchValue = useDeferredValue(starterSearchValue)
@@ -25,6 +28,12 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
     setShowSelectedOnly(false)
   }, [model.mainDeckEntries])
 
+  const tabSummary =
+    activeTab === 'one-card'
+      ? `${model.selectedOneCardStarterEntries.length} 张卡 / ${model.starterCopies} 张拷贝`
+      : model.selectedTwoCardStarter
+        ? `${model.selectedTwoCardStarter.name} + ${model.twoCardSupplementCopies} 张补点`
+        : '选择主启动并填写补点总数'
   const normalizedStarterSearchValue = deferredStarterSearchValue
     .trim()
     .toLocaleLowerCase()
@@ -55,214 +64,272 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
         </div>
       </div>
 
-      <div className="starter-config-group">
-        <div className="starter-config-heading">
-          <strong>一卡动</strong>
-          <span>从主卡组勾出真正的一卡动卡。</span>
-        </div>
-
-        <div className="starter-selection-toolbar">
-          <div>
-            <span>已选一卡动卡</span>
-            <strong>{model.selectedOneCardStarterEntries.length} 张卡</strong>
-          </div>
-          <div>
-            <span>累计张数</span>
-            <strong>{model.starterCopies} 张</strong>
-          </div>
-        </div>
-
-        <div className="starter-picker-toolbar">
-          <label
-            className="starter-picker-search"
-            htmlFor="one-card-starter-search"
+      <div className="starter-config-shell">
+        <div
+          className="starter-config-tabs"
+          role="tablist"
+          aria-label="起手点类型"
+        >
+          <button
+            className={`section-tab ${activeTab === 'one-card' ? 'is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'one-card'}
+            aria-controls="starter-tab-one-card"
+            id="starter-tab-trigger-one-card"
+            onClick={() => setActiveTab('one-card')}
           >
-            <span>按卡名或卡号筛选</span>
-            <input
-              id="one-card-starter-search"
-              className="starter-picker-search-input"
-              type="search"
-              autoComplete="off"
-              placeholder="例如 灰流丽 / Ash Blossom / 灰流うらら"
-              value={starterSearchValue}
-              onChange={(event) => setStarterSearchValue(event.target.value)}
-            />
-          </label>
-
-          <div className="starter-picker-actions">
-            <button
-              className={`starter-picker-toggle ${
-                showSelectedOnly ? 'is-active' : ''
-              }`}
-              type="button"
-              onClick={() => setShowSelectedOnly((current) => !current)}
-            >
-              {showSelectedOnly ? '显示全部' : '仅看已选'}
-            </button>
-            <button
-              className="starter-picker-toggle"
-              type="button"
-              disabled={model.selectedOneCardStarterIds.length === 0}
-              onClick={() => {
-                for (const entry of model.selectedOneCardStarterEntries) {
-                  model.toggleOneCardStarterSelection(entry.id)
-                }
-              }}
-            >
-              清空已选
-            </button>
-          </div>
+            一卡动
+          </button>
+          <button
+            className={`section-tab ${activeTab === 'two-card' ? 'is-active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'two-card'}
+            aria-controls="starter-tab-two-card"
+            id="starter-tab-trigger-two-card"
+            onClick={() => setActiveTab('two-card')}
+          >
+            二卡动
+          </button>
         </div>
 
-        {model.mainDeckEntries.length > 0 ? (
-          visibleStarterEntries.length > 0 ? (
-            <div
-              className="starter-pick-grid"
-              role="list"
-              aria-label="一卡动卡选择"
-            >
-              {visibleStarterEntries.map((entry) => {
-                const isSelected = model.selectedOneCardStarterIds.includes(
-                  entry.id,
-                )
+        <div className="starter-config-summary" aria-live="polite">
+          <strong>
+            {activeTab === 'one-card' ? '当前配置：一卡动' : '当前配置：二卡动'}
+          </strong>
+          <span>{tabSummary}</span>
+        </div>
 
-                return (
-                  <button
-                    aria-pressed={isSelected}
-                    className={`starter-pick-card ${isSelected ? 'is-selected' : ''}`}
-                    key={`one-card-${entry.id}`}
-                    type="button"
-                    onClick={() =>
+        {activeTab === 'one-card' ? (
+          <div
+            className="starter-config-group"
+            id="starter-tab-one-card"
+            role="tabpanel"
+            aria-labelledby="starter-tab-trigger-one-card"
+          >
+            <div className="starter-config-heading">
+              <strong>一卡动</strong>
+              <span>从主卡组勾出真正的一卡动卡。</span>
+            </div>
+
+            <div className="starter-selection-toolbar">
+              <div>
+                <span>已选一卡动卡</span>
+                <strong>
+                  {model.selectedOneCardStarterEntries.length} 张卡
+                </strong>
+              </div>
+              <div>
+                <span>累计张数</span>
+                <strong>{model.starterCopies} 张</strong>
+              </div>
+            </div>
+
+            <div className="starter-picker-toolbar">
+              <label
+                className="starter-picker-search"
+                htmlFor="one-card-starter-search"
+              >
+                <span>按卡名或卡号筛选</span>
+                <input
+                  id="one-card-starter-search"
+                  className="starter-picker-search-input"
+                  type="search"
+                  autoComplete="off"
+                  placeholder="例如 灰流丽 / Ash Blossom / 灰流うらら"
+                  value={starterSearchValue}
+                  onChange={(event) =>
+                    setStarterSearchValue(event.target.value)
+                  }
+                />
+              </label>
+
+              <div className="starter-picker-actions">
+                <button
+                  className={`starter-picker-toggle ${
+                    showSelectedOnly ? 'is-active' : ''
+                  }`}
+                  type="button"
+                  onClick={() => setShowSelectedOnly((current) => !current)}
+                >
+                  {showSelectedOnly ? '显示全部' : '仅看已选'}
+                </button>
+                <button
+                  className="starter-picker-toggle"
+                  type="button"
+                  disabled={model.selectedOneCardStarterIds.length === 0}
+                  onClick={() => {
+                    for (const entry of model.selectedOneCardStarterEntries) {
                       model.toggleOneCardStarterSelection(entry.id)
                     }
-                  >
-                    <div className="starter-pick-art">
-                      {entry.imageUrl ? (
-                        <img
-                          alt={entry.name}
-                          draggable={false}
-                          height={350}
-                          loading="lazy"
-                          src={entry.imageUrl}
-                          width={240}
-                        />
-                      ) : (
-                        <div className="starter-card-fallback">{entry.id}</div>
-                      )}
-                      <span className="starter-pick-copies">
-                        {entry.copies}x
-                      </span>
-                      {isSelected ? (
-                        <span className="starter-pick-selected">已选</span>
-                      ) : null}
-                    </div>
-                    <div className="starter-pick-meta">
-                      <strong className="starter-pick-name">
-                        {entry.name}
-                      </strong>
-                      <span className="starter-pick-id">
-                        {entry.status === 'missing' ? '资料缺失' : entry.id}
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="starter-config-note">
-              {showSelectedOnly
-                ? '当前还没有已选的一卡动卡。'
-                : '没有匹配当前筛选条件的主卡组卡片。'}
-            </p>
-          )
-        ) : (
-          <p className="starter-config-note">主卡组里还没有可选卡片。</p>
-        )}
-      </div>
-
-      <div className="starter-config-group">
-        <div className="starter-config-heading">
-          <strong>二卡动</strong>
-          <span>选一张主卡组内的主启动，再填能把它启动起来的补点总数。</span>
-        </div>
-
-        {model.mainDeckEntries.length > 0 ? (
-          <>
-            <label
-              className="starter-count-field"
-              htmlFor="two-card-starter-select"
-            >
-              <span>主启动卡</span>
-              <select
-                id="two-card-starter-select"
-                className="starter-count-input starter-select"
-                value={model.selectedTwoCardStarter?.id ?? ''}
-                onChange={(event) =>
-                  model.updateSelectedTwoCardStarter(event.target.value)
-                }
-              >
-                {model.mainDeckEntries.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.copies}x {entry.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {model.selectedTwoCardStarter ? (
-              <div className="starter-selection-summary">
-                <strong>
-                  {model.selectedTwoCardStarter.copies}x{' '}
-                  {model.selectedTwoCardStarter.name}
-                </strong>
-                <span>
-                  本体张数会自动读取。补点总数只填不属于一卡动池的其他补点卡；
-                  这张卡自己的拷贝也不会重复算进去。
-                </span>
+                  }}
+                >
+                  清空已选
+                </button>
               </div>
-            ) : null}
+            </div>
 
-            <label
-              className="starter-count-field"
-              htmlFor="two-card-supplement-input"
-            >
-              <span>补点总张数</span>
-              <input
-                id="two-card-supplement-input"
-                className="starter-count-input"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="off"
-                placeholder="0"
-                value={supplementDraftValue}
-                onChange={(event) => {
-                  const nextValue = event.target.value.replace(/\D+/g, '')
-                  if (nextValue === '') {
-                    setSupplementDraftValue('')
-                    model.updateTwoCardSupplementCopies(0)
-                    return
-                  }
+            {model.mainDeckEntries.length > 0 ? (
+              visibleStarterEntries.length > 0 ? (
+                <div
+                  className="starter-pick-grid"
+                  role="list"
+                  aria-label="一卡动卡选择"
+                >
+                  {visibleStarterEntries.map((entry) => {
+                    const isSelected = model.selectedOneCardStarterIds.includes(
+                      entry.id,
+                    )
 
-                  const clampedValue = clampStarterCopies(
-                    Number(nextValue),
-                    model.maxTwoCardSupplementCopies,
-                  )
-                  setSupplementDraftValue(String(clampedValue))
-                  model.updateTwoCardSupplementCopies(clampedValue)
-                }}
-              />
-            </label>
-
-            <p className="starter-config-note">
-              当前最多可填 {model.maxTwoCardSupplementCopies}。这里会自动排除
-              已选的一卡动卡，以及这张主启动本体。
-            </p>
-          </>
+                    return (
+                      <button
+                        aria-pressed={isSelected}
+                        className={`starter-pick-card ${isSelected ? 'is-selected' : ''}`}
+                        key={`one-card-${entry.id}`}
+                        type="button"
+                        onClick={() =>
+                          model.toggleOneCardStarterSelection(entry.id)
+                        }
+                      >
+                        <div className="starter-pick-art">
+                          {entry.imageUrl ? (
+                            <img
+                              alt={entry.name}
+                              draggable={false}
+                              height={350}
+                              loading="lazy"
+                              src={entry.imageUrl}
+                              width={240}
+                            />
+                          ) : (
+                            <div className="starter-card-fallback">
+                              {entry.id}
+                            </div>
+                          )}
+                          <span className="starter-pick-copies">
+                            {entry.copies}x
+                          </span>
+                          {isSelected ? (
+                            <span className="starter-pick-selected">已选</span>
+                          ) : null}
+                        </div>
+                        <div className="starter-pick-meta">
+                          <strong className="starter-pick-name">
+                            {entry.name}
+                          </strong>
+                          <span className="starter-pick-id">
+                            {entry.status === 'missing' ? '资料缺失' : entry.id}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="starter-config-note">
+                  {showSelectedOnly
+                    ? '当前还没有已选的一卡动卡。'
+                    : '没有匹配当前筛选条件的主卡组卡片。'}
+                </p>
+              )
+            ) : (
+              <p className="starter-config-note">主卡组里还没有可选卡片。</p>
+            )}
+          </div>
         ) : (
-          <p className="starter-config-note">
-            主卡组里还没有可选卡片，所以暂时不能配置指定主启动。
-          </p>
+          <div
+            className="starter-config-group"
+            id="starter-tab-two-card"
+            role="tabpanel"
+            aria-labelledby="starter-tab-trigger-two-card"
+          >
+            <div className="starter-config-heading">
+              <strong>二卡动</strong>
+              <span>
+                选一张主卡组内的主启动，再填能把它启动起来的补点总数。
+              </span>
+            </div>
+
+            {model.mainDeckEntries.length > 0 ? (
+              <>
+                <label
+                  className="starter-count-field"
+                  htmlFor="two-card-starter-select"
+                >
+                  <span>主启动卡</span>
+                  <select
+                    id="two-card-starter-select"
+                    className="starter-count-input starter-select"
+                    value={model.selectedTwoCardStarter?.id ?? ''}
+                    onChange={(event) =>
+                      model.updateSelectedTwoCardStarter(event.target.value)
+                    }
+                  >
+                    {model.mainDeckEntries.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.copies}x {entry.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {model.selectedTwoCardStarter ? (
+                  <div className="starter-selection-summary">
+                    <strong>
+                      {model.selectedTwoCardStarter.copies}x{' '}
+                      {model.selectedTwoCardStarter.name}
+                    </strong>
+                    <span>
+                      {
+                        '本体张数会自动读取。补点总数只填不属于一卡动池的其他补点卡；这张卡自己的拷贝也不会重复算进去。'
+                      }
+                    </span>
+                  </div>
+                ) : null}
+
+                <label
+                  className="starter-count-field"
+                  htmlFor="two-card-supplement-input"
+                >
+                  <span>补点总张数</span>
+                  <input
+                    id="two-card-supplement-input"
+                    className="starter-count-input"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
+                    placeholder="0"
+                    value={supplementDraftValue}
+                    onChange={(event) => {
+                      const nextValue = event.target.value.replace(/\D+/g, '')
+                      if (nextValue === '') {
+                        setSupplementDraftValue('')
+                        model.updateTwoCardSupplementCopies(0)
+                        return
+                      }
+
+                      const clampedValue = clampStarterCopies(
+                        Number(nextValue),
+                        model.maxTwoCardSupplementCopies,
+                      )
+                      setSupplementDraftValue(String(clampedValue))
+                      model.updateTwoCardSupplementCopies(clampedValue)
+                    }}
+                  />
+                </label>
+
+                <p className="starter-config-note">
+                  {`当前最多可填 ${model.maxTwoCardSupplementCopies}。这里会自动排除已选的一卡动卡，以及这张主启动本体。`}
+                </p>
+              </>
+            ) : (
+              <p className="starter-config-note">
+                主卡组里还没有可选卡片，所以暂时不能配置指定主启动。
+              </p>
+            )}
+          </div>
         )}
       </div>
     </section>
