@@ -6,7 +6,8 @@ const DECK_ANALYSIS_GC_TIME = 30 * 60 * 1000
 
 export const deckAnalysisKeys = {
   all: ['deck-analysis'] as const,
-  detail: (analysisId: string) => [...deckAnalysisKeys.all, analysisId] as const,
+  detail: (analysisId: string) =>
+    [...deckAnalysisKeys.all, analysisId] as const,
 }
 
 export function deckAnalysisQueryOptions(analysisId: string) {

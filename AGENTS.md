@@ -19,7 +19,7 @@ Core technologies in use:
 - Tailwind CSS 4 for styling
 - Drizzle ORM + PostgreSQL
 - Vitest for tests
-- Netlify for production deployment
+- Dokploy for production deployment with Bun-based Docker images stored in Tencent TCR
 
 ## Setup Commands
 
@@ -46,6 +46,7 @@ Useful project commands:
 ```bash
 bun --bun run build
 bun --bun run preview
+bun --bun run start
 bun --bun run test
 bun --bun run lint
 bunx tsc --noEmit
@@ -118,7 +119,7 @@ bunx vitest run src/lib/ydk.test.ts
   - trailing commas
 - ESLint is based on `@tanstack/eslint-config` with a few disabled rules in `eslint.config.js`.
 - Follow the existing file-local style: concise functions, explicit types around shared boundaries, and colocated tests.
-- Avoid editing generated output such as `src/routeTree.gen.ts`, `dist/`, or `.netlify/` artifacts unless the task is specifically about generated output.
+- Avoid editing generated output such as `src/routeTree.gen.ts`, `dist/`, or `.output/` artifacts unless the task is specifically about generated output.
 
 ## Build and Deployment
 
@@ -128,8 +129,9 @@ bunx vitest run src/lib/ydk.test.ts
 bun --bun run build
 ```
 
-- Netlify publishes `dist/client`.
-- TanStack Start SSR output is generated during build and Netlify writes the server entry to `.netlify/v1/functions/server.mjs`.
+- TanStack Start builds the production artifact into `.output/`.
+- The production container is built from `Dockerfile` and runs `bun .output/server/index.mjs`.
+- Dokploy should deploy the image pushed by `.github/workflows/deploy.yml`.
 - Production database migrations are applied by GitHub Actions from `.github/workflows/migrate-production.yml`.
 - The production migration workflow runs on pushes to `main` when files in `drizzle/*.sql` change, and it uses the `PRODUCTION_DATABASE_URL` secret.
 

@@ -13,7 +13,8 @@ const getDeckAnalysisInput = z.object({
 export const createDeckAnalysis = createServerFn({ method: 'POST' })
   .inputValidator(createDeckAnalysisInput)
   .handler(async ({ data }) => {
-    const { createPersistedDeckAnalysis } = await import('./deck-analysis.server')
+    const { createPersistedDeckAnalysis } =
+      await import('./deck-analysis.server')
 
     return createPersistedDeckAnalysis(data)
   })
@@ -21,9 +22,8 @@ export const createDeckAnalysis = createServerFn({ method: 'POST' })
 export const getDeckAnalysis = createServerFn({ method: 'GET' })
   .inputValidator(getDeckAnalysisInput)
   .handler(async ({ data }) => {
-    const { getPersistedDeckAnalysisById } = await import(
-      './deck-analysis.server'
-    )
+    const { getPersistedDeckAnalysisById } =
+      await import('./deck-analysis.server')
 
     return getPersistedDeckAnalysisById(data.analysisId)
   })

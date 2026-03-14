@@ -13,8 +13,7 @@ export function calculateCombinedStarterRate(
 ): OpeningHandCalculationResult | null {
   const hasOneCardStarterPool = input.oneCardStarterCopies > 0
   const hasTwoCardCombo =
-    input.selectedTwoCardStarterCopies > 0 &&
-    input.twoCardSupplementCopies > 0
+    input.selectedTwoCardStarterCopies > 0 && input.twoCardSupplementCopies > 0
 
   if (input.deckSize <= 0 || (!hasOneCardStarterPool && !hasTwoCardCombo)) {
     return null

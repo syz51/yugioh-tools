@@ -4,7 +4,10 @@ import type { DeckAnalysisModel, DeckCardView } from '../types'
 
 type StarterConfigTab = 'one-card' | 'two-card'
 
-function matchesStarterSearch(entry: DeckCardView, normalizedSearchValue: string) {
+function matchesStarterSearch(
+  entry: DeckCardView,
+  normalizedSearchValue: string,
+) {
   if (normalizedSearchValue === '') {
     return true
   }
@@ -72,10 +75,11 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
   const visibleTwoCardStarterEntries = model.mainDeckEntries.filter((entry) =>
     matchesStarterSearch(entry, normalizedTwoCardStarterSearchValue),
   )
-  const selectedTwoCardStarterCopies = model.selectedTwoCardStarterEntries.reduce(
-    (sum, entry) => sum + entry.copies,
-    0,
-  )
+  const selectedTwoCardStarterCopies =
+    model.selectedTwoCardStarterEntries.reduce(
+      (sum, entry) => sum + entry.copies,
+      0,
+    )
 
   return (
     <section className="surface-panel side-panel starter-count-panel">
@@ -312,9 +316,8 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
                     aria-label="二卡动主启动选择"
                   >
                     {visibleTwoCardStarterEntries.map((entry) => {
-                      const isSelected = model.selectedTwoCardStarterIds.includes(
-                        entry.id,
-                      )
+                      const isSelected =
+                        model.selectedTwoCardStarterIds.includes(entry.id)
                       const isOneCardStarter =
                         model.selectedOneCardStarterIds.includes(entry.id)
 
@@ -326,7 +329,9 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
                           }`}
                           key={`two-card-${entry.id}`}
                           type="button"
-                          onClick={() => model.toggleTwoCardStarterSelection(entry.id)}
+                          onClick={() =>
+                            model.toggleTwoCardStarterSelection(entry.id)
+                          }
                         >
                           <div className="starter-pick-art">
                             {entry.imageUrl ? (
@@ -357,7 +362,9 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
                               {entry.name}
                             </strong>
                             <span className="starter-pick-id">
-                              {entry.status === 'missing' ? '资料缺失' : entry.id}
+                              {entry.status === 'missing'
+                                ? '资料缺失'
+                                : entry.id}
                             </span>
                             {isOneCardStarter ? (
                               <span className="starter-main-card-flag">
@@ -457,7 +464,8 @@ export function RateBoard({ model }: { model: DeckAnalysisModel }) {
                 !selectedStarterPoolFullyCoveredByOneCardPool
               ? `已把 ${model.selectedOneCardStarterEntries.length} 张一卡动（共 ${model.starterCopies} 张）和 ${model.selectedTwoCardStarterEntries.length} 张已选主启动 + 任意 ${model.twoCardSupplementCopies} 张补点合并计算。`
               : model.starterCopies > 0
-                ? selectedStarterPoolFullyCoveredByOneCardPool && hasTwoCardConfig
+                ? selectedStarterPoolFullyCoveredByOneCardPool &&
+                  hasTwoCardConfig
                   ? `当前已选主启动都包含在一卡动池里，所以整体起手率按已选的一卡动 ${model.starterCopies} 张拷贝计算。`
                   : `当前按已选的一卡动 ${model.selectedOneCardStarterEntries.length} 张卡、共 ${model.starterCopies} 张拷贝计算。`
                 : `${model.selectedTwoCardStarterEntries.length} 张已选主启动 + 任意 ${model.twoCardSupplementCopies} 张补点的整体起手率。`}
