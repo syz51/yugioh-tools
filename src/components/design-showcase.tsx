@@ -153,9 +153,9 @@ export function StarterRateExperiencePage() {
               }}
             >
               <div className="landing-grid">
-                <LandingDeckInput inputId={inputId} model={model} />
+                <ImportGuidePanel />
                 <div className="landing-right-rail">
-                  <ImportGuidePanel />
+                  <LandingDeckInput inputId={inputId} model={model} />
                 </div>
               </div>
             </motion.div>
@@ -434,8 +434,12 @@ function LandingDeckInput({
         <div className="deck-input-intro">
           <p className="panel-kicker">Stage one</p>
           <p className="deck-input-note">
-            Upload a <code>.ydk</code> file or paste raw deck text to open the
-            starter board immediately.
+            Use this panel to get a deck into the tool. As soon as the import
+            resolves, the page moves straight to the starter board.
+          </p>
+          <p className="deck-input-helper">
+            Upload, paste, or load a sample deck. You do not need to inspect
+            the raw <code>.ydk</code> text here.
           </p>
         </div>
         <input
@@ -487,7 +491,7 @@ function LandingDeckInput({
         }}
       >
         <label className="deck-text-block" htmlFor={`${inputId}-editor`}>
-          <span>Paste YDK text</span>
+          <span>Quick paste</span>
           <textarea
             id={`${inputId}-editor`}
             className="deck-editor"
@@ -515,29 +519,33 @@ function ImportGuidePanel() {
   return (
     <section className="surface-panel guide-panel">
       <div className="guide-panel-head">
-        <p className="panel-kicker">How it works</p>
+        <p className="panel-kicker">How to use this tool</p>
+        <h2>Import once, then make decisions on the next screen.</h2>
         <p className="guide-panel-note">
-          Everything you need for stage one is here. Import first, then tune
-          starters on the next screen.
+          Stage one is only the handoff. The real work starts after the deck is
+          parsed and the starter-rate workspace opens.
         </p>
       </div>
       <div className="guide-list">
         <article>
-          <strong>Import</strong>
+          <strong>1. Bring in your list</strong>
           <p>
-            Upload a simulator-exported YDK file or paste the raw deck text.
+            Upload a simulator-exported <code>.ydk</code> file, paste raw deck
+            text, or load the sample deck if you just want to test the flow.
           </p>
         </article>
         <article>
-          <strong>Starter count</strong>
+          <strong>2. Let the import finish</strong>
           <p>
-            Enter the total number of one-card starter copies in the main deck.
+            The app resolves card data and automatically advances to the
+            starter board as soon as the list is ready.
           </p>
         </article>
         <article>
-          <strong>Output</strong>
+          <strong>3. Set starter copies and read the rate</strong>
           <p>
-            The app shows the exact opening-hand rate for finding at least one.
+            On the next screen, enter how many one-card starters exist in the
+            main deck and the tool returns the exact opening-hand percentage.
           </p>
         </article>
       </div>
@@ -546,6 +554,10 @@ function ImportGuidePanel() {
         <div>
           <dt>Accepted input</dt>
           <dd>.ydk upload or raw text paste</dd>
+        </div>
+        <div>
+          <dt>Stage transition</dt>
+          <dd>Automatic after a successful import</dd>
         </div>
         <div>
           <dt>Starter logic</dt>

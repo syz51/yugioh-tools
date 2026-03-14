@@ -286,7 +286,7 @@ code {
 }
 
 .landing-grid {
-  grid-template-columns: minmax(0, 1.42fr) minmax(280px, 0.58fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
   align-items: start;
 }
 
@@ -353,6 +353,21 @@ code {
   line-height: 1.5;
 }
 
+.guide-panel-head h2 {
+  margin: 0;
+  font: 800 clamp(1.8rem, 2.8vw, 3rem) / 1.02 var(--headline-font);
+  letter-spacing: -0.04em;
+  max-width: 14ch;
+}
+
+.deck-input-helper {
+  margin: 0;
+  color: var(--text-dim);
+  font: 700 0.76rem/1.55 var(--mono-font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .deck-input-actions {
   display: flex;
   flex-wrap: wrap;
@@ -383,8 +398,8 @@ code {
 
 .deck-editor {
   width: 100%;
-  min-height: 320px;
-  padding: 16px;
+  min-height: 176px;
+  padding: 14px 16px;
   border: 1px solid var(--line-strong);
   border-radius: 18px;
   background: rgba(8, 5, 7, 0.22);
@@ -436,15 +451,16 @@ code {
 
 .guide-panel {
   display: grid;
-  gap: 14px;
-  padding: 16px;
+  gap: 16px;
+  padding: 22px;
   align-self: start;
 }
 
 .guide-facts {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .guide-facts div {
@@ -1117,7 +1133,8 @@ code {
   .status-grid,
   .rate-grid,
   .summary-grid,
-  .deck-stage-meta {
+  .deck-stage-meta,
+  .guide-facts {
     grid-template-columns: 1fr;
   }
 
