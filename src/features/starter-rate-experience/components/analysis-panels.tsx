@@ -1,8 +1,20 @@
 import { useDeferredValue, useEffect, useState } from 'react'
 import { clampStarterCopies, formatPercent } from '../lib/utils'
-import type { DeckAnalysisModel } from '../types'
+import type { DeckAnalysisModel, DeckCardView } from '../types'
 
 type StarterConfigTab = 'one-card' | 'two-card'
+
+function matchesStarterSearch(entry: DeckCardView, normalizedSearchValue: string) {
+  if (normalizedSearchValue === '') {
+    return true
+  }
+
+  return (
+    entry.searchAliases.some((name) =>
+      name.toLocaleLowerCase().includes(normalizedSearchValue),
+    ) || entry.id.includes(normalizedSearchValue)
+  )
+}
 
 export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
   const [supplementDraftValue, setSupplementDraftValue] = useState(
@@ -11,9 +23,15 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
       : '',
   )
   const [activeTab, setActiveTab] = useState<StarterConfigTab>('one-card')
-  const [starterSearchValue, setStarterSearchValue] = useState('')
+  const [oneCardStarterSearchValue, setOneCardStarterSearchValue] = useState('')
+  const [twoCardStarterSearchValue, setTwoCardStarterSearchValue] = useState('')
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
-  const deferredStarterSearchValue = useDeferredValue(starterSearchValue)
+  const deferredOneCardStarterSearchValue = useDeferredValue(
+    oneCardStarterSearchValue,
+  )
+  const deferredTwoCardStarterSearchValue = useDeferredValue(
+    twoCardStarterSearchValue,
+  )
 
   useEffect(() => {
     setSupplementDraftValue(
@@ -24,17 +42,21 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
   }, [model.twoCardSupplementCopies])
 
   useEffect(() => {
-    setStarterSearchValue('')
+    setOneCardStarterSearchValue('')
+    setTwoCardStarterSearchValue('')
     setShowSelectedOnly(false)
   }, [model.mainDeckEntries])
 
   const tabSummary =
     activeTab === 'one-card'
       ? `${model.selectedOneCardStarterEntries.length} 张卡 / ${model.starterCopies} 张拷贝`
-      : model.selectedTwoCardStarter
-        ? `${model.selectedTwoCardStarter.name} + ${model.twoCardSupplementCopies} 张补点`
+      : model.selectedTwoCardStarterEntries.length > 0
+        ? `${model.selectedTwoCardStarterEntries.length} 张主启动 / ${model.twoCardSupplementCopies} 张补点`
         : '选择主启动并填写补点总数'
-  const normalizedStarterSearchValue = deferredStarterSearchValue
+  const normalizedOneCardStarterSearchValue = deferredOneCardStarterSearchValue
+    .trim()
+    .toLocaleLowerCase()
+  const normalizedTwoCardStarterSearchValue = deferredTwoCardStarterSearchValue
     .trim()
     .toLocaleLowerCase()
   const visibleStarterEntries = model.mainDeckEntries.filter((entry) => {
@@ -45,16 +67,15 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
       return false
     }
 
-    if (normalizedStarterSearchValue === '') {
-      return true
-    }
-
-    return (
-      entry.searchAliases.some((name) =>
-        name.toLocaleLowerCase().includes(normalizedStarterSearchValue),
-      ) || entry.id.includes(normalizedStarterSearchValue)
-    )
+    return matchesStarterSearch(entry, normalizedOneCardStarterSearchValue)
   })
+  const visibleTwoCardStarterEntries = model.mainDeckEntries.filter((entry) =>
+    matchesStarterSearch(entry, normalizedTwoCardStarterSearchValue),
+  )
+  const selectedTwoCardStarterCopies = model.selectedTwoCardStarterEntries.reduce(
+    (sum, entry) => sum + entry.copies,
+    0,
+  )
 
   return (
     <section className="surface-panel side-panel starter-count-panel">
@@ -138,9 +159,9 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
                   type="search"
                   autoComplete="off"
                   placeholder="例如 灰流丽 / Ash Blossom / 灰流うらら"
-                  value={starterSearchValue}
+                  value={oneCardStarterSearchValue}
                   onChange={(event) =>
-                    setStarterSearchValue(event.target.value)
+                    setOneCardStarterSearchValue(event.target.value)
                   }
                 />
               </label>
@@ -247,46 +268,112 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
             <div className="starter-config-heading">
               <strong>二卡动</strong>
               <span>
-                选一张主卡组内的主启动，再填能把它启动起来的补点总数。
+                可勾选多张主启动卡。系统会按任意已选主启动 + 任意补点来计算。
               </span>
             </div>
 
             {model.mainDeckEntries.length > 0 ? (
               <>
-                <label
-                  className="starter-count-field"
-                  htmlFor="two-card-starter-select"
-                >
-                  <span>主启动卡</span>
-                  <select
-                    id="two-card-starter-select"
-                    className="starter-count-input starter-select"
-                    value={model.selectedTwoCardStarter?.id ?? ''}
-                    onChange={(event) =>
-                      model.updateSelectedTwoCardStarter(event.target.value)
-                    }
+                <div className="starter-picker-toolbar">
+                  <label
+                    className="starter-picker-search"
+                    htmlFor="two-card-starter-search"
                   >
-                    {model.mainDeckEntries.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.copies}x {entry.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {model.selectedTwoCardStarter ? (
-                  <div className="starter-selection-summary">
-                    <strong>
-                      {model.selectedTwoCardStarter.copies}x{' '}
-                      {model.selectedTwoCardStarter.name}
-                    </strong>
-                    <span>
-                      {
-                        '本体张数会自动读取。补点总数只填不属于一卡动池的其他补点卡；这张卡自己的拷贝也不会重复算进去。'
+                    <span>按卡名或卡号筛选主启动</span>
+                    <input
+                      id="two-card-starter-search"
+                      className="starter-picker-search-input"
+                      type="search"
+                      autoComplete="off"
+                      placeholder="例如 增殖的G / Maxx C / 23434538"
+                      value={twoCardStarterSearchValue}
+                      onChange={(event) =>
+                        setTwoCardStarterSearchValue(event.target.value)
                       }
-                    </span>
+                    />
+                  </label>
+
+                  <div className="starter-picker-actions">
+                    <button
+                      className="starter-picker-toggle"
+                      type="button"
+                      disabled={model.selectedTwoCardStarterIds.length === 0}
+                      onClick={() => model.clearTwoCardStarterSelections()}
+                    >
+                      清空已选主启动
+                    </button>
                   </div>
-                ) : null}
+                </div>
+
+                {visibleTwoCardStarterEntries.length > 0 ? (
+                  <div
+                    className="starter-pick-grid starter-pick-grid-two-card"
+                    role="list"
+                    aria-label="二卡动主启动选择"
+                  >
+                    {visibleTwoCardStarterEntries.map((entry) => {
+                      const isSelected = model.selectedTwoCardStarterIds.includes(
+                        entry.id,
+                      )
+                      const isOneCardStarter =
+                        model.selectedOneCardStarterIds.includes(entry.id)
+
+                      return (
+                        <button
+                          aria-pressed={isSelected}
+                          className={`starter-pick-card ${
+                            isSelected ? 'is-selected is-primary-selected' : ''
+                          }`}
+                          key={`two-card-${entry.id}`}
+                          type="button"
+                          onClick={() => model.toggleTwoCardStarterSelection(entry.id)}
+                        >
+                          <div className="starter-pick-art">
+                            {entry.imageUrl ? (
+                              <img
+                                alt={entry.name}
+                                draggable={false}
+                                height={350}
+                                loading="lazy"
+                                src={entry.imageUrl}
+                                width={240}
+                              />
+                            ) : (
+                              <div className="starter-card-fallback">
+                                {entry.id}
+                              </div>
+                            )}
+                            <span className="starter-pick-copies">
+                              {entry.copies}x
+                            </span>
+                            {isSelected ? (
+                              <span className="starter-pick-selected">
+                                已选
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="starter-pick-meta">
+                            <strong className="starter-pick-name">
+                              {entry.name}
+                            </strong>
+                            <span className="starter-pick-id">
+                              {entry.status === 'missing' ? '资料缺失' : entry.id}
+                            </span>
+                            {isOneCardStarter ? (
+                              <span className="starter-main-card-flag">
+                                已在一卡动池
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="starter-config-note">
+                    没有匹配当前筛选条件的主卡组卡片。
+                  </p>
+                )}
 
                 <label
                   className="starter-count-field"
@@ -300,7 +387,12 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     autoComplete="off"
-                    placeholder="0"
+                    disabled={model.selectedTwoCardStarterEntries.length === 0}
+                    placeholder={
+                      model.selectedTwoCardStarterEntries.length === 0
+                        ? '先选主启动'
+                        : '0'
+                    }
                     value={supplementDraftValue}
                     onChange={(event) => {
                       const nextValue = event.target.value.replace(/\D+/g, '')
@@ -321,7 +413,9 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
                 </label>
 
                 <p className="starter-config-note">
-                  {`当前最多可填 ${model.maxTwoCardSupplementCopies}。这里会自动排除已选的一卡动卡，以及这张主启动本体。`}
+                  {model.selectedTwoCardStarterEntries.length > 0
+                    ? `当前已选 ${model.selectedTwoCardStarterEntries.length} 张主启动、共 ${selectedTwoCardStarterCopies} 张本体拷贝。补点上限为 ${model.maxTwoCardSupplementCopies}，并会自动排除已选的一卡动卡与已选主启动本体。`
+                    : '先选主启动卡，系统才会根据当前一卡动配置计算可填写的补点上限。'}
                 </p>
               </>
             ) : (
@@ -340,10 +434,15 @@ export function RateBoard({ model }: { model: DeckAnalysisModel }) {
   const overallStartRate =
     model.combinedStarterResult?.openingHandProbability ?? 0
   const hasTwoCardConfig =
-    model.selectedTwoCardStarter !== null && model.twoCardSupplementCopies > 0
-  const selectedStarterIsAlreadyOneCardStarter =
-    model.selectedTwoCardStarter !== null &&
-    model.selectedOneCardStarterIds.includes(model.selectedTwoCardStarter.id)
+    model.selectedTwoCardStarterEntries.length > 0 &&
+    model.twoCardSupplementCopies > 0
+  const selectedTwoCardStarterExclusiveEntries =
+    model.selectedTwoCardStarterEntries.filter(
+      (entry) => !model.selectedOneCardStarterIds.includes(entry.id),
+    )
+  const selectedStarterPoolFullyCoveredByOneCardPool =
+    model.selectedTwoCardStarterEntries.length > 0 &&
+    selectedTwoCardStarterExclusiveEntries.length === 0
 
   return (
     <section className="surface-panel rate-panel">
@@ -355,13 +454,13 @@ export function RateBoard({ model }: { model: DeckAnalysisModel }) {
             ? '先配置一卡动或二卡动，这里会显示整体起手率。'
             : model.starterCopies > 0 &&
                 hasTwoCardConfig &&
-                !selectedStarterIsAlreadyOneCardStarter
-              ? `已把 ${model.selectedOneCardStarterEntries.length} 张一卡动（共 ${model.starterCopies} 张）和 ${model.selectedTwoCardStarter?.name} + 任意 ${model.twoCardSupplementCopies} 张补点合并计算。`
+                !selectedStarterPoolFullyCoveredByOneCardPool
+              ? `已把 ${model.selectedOneCardStarterEntries.length} 张一卡动（共 ${model.starterCopies} 张）和 ${model.selectedTwoCardStarterEntries.length} 张已选主启动 + 任意 ${model.twoCardSupplementCopies} 张补点合并计算。`
               : model.starterCopies > 0
-                ? selectedStarterIsAlreadyOneCardStarter && hasTwoCardConfig
-                  ? `当前主启动已包含在一卡动池里，所以整体起手率按已选的一卡动 ${model.starterCopies} 张拷贝计算。`
+                ? selectedStarterPoolFullyCoveredByOneCardPool && hasTwoCardConfig
+                  ? `当前已选主启动都包含在一卡动池里，所以整体起手率按已选的一卡动 ${model.starterCopies} 张拷贝计算。`
                   : `当前按已选的一卡动 ${model.selectedOneCardStarterEntries.length} 张卡、共 ${model.starterCopies} 张拷贝计算。`
-                : `${model.selectedTwoCardStarter?.name} + 任意 ${model.twoCardSupplementCopies} 张补点的整体起手率。`}
+                : `${model.selectedTwoCardStarterEntries.length} 张已选主启动 + 任意 ${model.twoCardSupplementCopies} 张补点的整体起手率。`}
         </span>
       </div>
     </section>

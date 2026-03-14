@@ -6,8 +6,7 @@ describe('calculateCombinedStarterRate', () => {
     const result = calculateCombinedStarterRate({
       deckSize: 40,
       oneCardStarterCopies: 12,
-      selectedTwoCardStarter: null,
-      selectedTwoCardStarterIncludedInOneCardPool: false,
+      selectedTwoCardStarterCopies: 0,
       twoCardSupplementCopies: 0,
     })
 
@@ -20,11 +19,7 @@ describe('calculateCombinedStarterRate', () => {
     const result = calculateCombinedStarterRate({
       deckSize: 40,
       oneCardStarterCopies: 12,
-      selectedTwoCardStarter: {
-        copies: 3,
-        name: 'Starter',
-      },
-      selectedTwoCardStarterIncludedInOneCardPool: false,
+      selectedTwoCardStarterCopies: 3,
       twoCardSupplementCopies: 9,
     })
 
@@ -50,15 +45,11 @@ describe('calculateCombinedStarterRate', () => {
     )
   })
 
-  it('does not add extra start rate when the two-card starter is already a one-card starter', () => {
+  it('does not add extra start rate when no disjoint two-card main copies remain', () => {
     const result = calculateCombinedStarterRate({
       deckSize: 40,
       oneCardStarterCopies: 12,
-      selectedTwoCardStarter: {
-        copies: 3,
-        name: 'Starter',
-      },
-      selectedTwoCardStarterIncludedInOneCardPool: true,
+      selectedTwoCardStarterCopies: 0,
       twoCardSupplementCopies: 9,
     })
 
@@ -71,11 +62,7 @@ describe('calculateCombinedStarterRate', () => {
     const result = calculateCombinedStarterRate({
       deckSize: 40,
       oneCardStarterCopies: 0,
-      selectedTwoCardStarter: {
-        copies: 3,
-        name: 'Starter',
-      },
-      selectedTwoCardStarterIncludedInOneCardPool: false,
+      selectedTwoCardStarterCopies: 3,
       twoCardSupplementCopies: 9,
     })
 
@@ -84,6 +71,23 @@ describe('calculateCombinedStarterRate', () => {
       choose(37, 5) / choose(40, 5) -
       choose(31, 5) / choose(40, 5) +
       choose(28, 5) / choose(40, 5)
+
+    expect(result?.openingHandProbability).toBeCloseTo(expected, 12)
+  })
+
+  it('counts multiple selected two-card mains as one starter pool', () => {
+    const result = calculateCombinedStarterRate({
+      deckSize: 40,
+      oneCardStarterCopies: 0,
+      selectedTwoCardStarterCopies: 6,
+      twoCardSupplementCopies: 9,
+    })
+
+    const expected =
+      1 -
+      choose(34, 5) / choose(40, 5) -
+      choose(31, 5) / choose(40, 5) +
+      choose(25, 5) / choose(40, 5)
 
     expect(result?.openingHandProbability).toBeCloseTo(expected, 12)
   })

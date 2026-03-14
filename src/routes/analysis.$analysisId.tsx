@@ -39,24 +39,19 @@ function AnalysisRouteComponent() {
       ),
     [analysis.payload.deckView.sections],
   )
-  const firstMainDeckEntry = useMemo(
-    () => mainDeckEntries.at(0) ?? null,
-    [mainDeckEntries],
-  )
-  const defaultTwoCardStarterId = firstMainDeckEntry?.id ?? null
   const [selectedOneCardStarterIds, setSelectedOneCardStarterIds] = useState<
     string[]
   >([])
-  const [selectedTwoCardStarterId, setSelectedTwoCardStarterId] = useState<
-    string | null
-  >(defaultTwoCardStarterId)
+  const [selectedTwoCardStarterIds, setSelectedTwoCardStarterIds] = useState<
+    string[]
+  >([])
   const [twoCardSupplementCopies, setTwoCardSupplementCopies] = useState(0)
 
   useEffect(() => {
     setSelectedOneCardStarterIds([])
-    setSelectedTwoCardStarterId(defaultTwoCardStarterId)
+    setSelectedTwoCardStarterIds([])
     setTwoCardSupplementCopies(0)
-  }, [analysisId, defaultTwoCardStarterId])
+  }, [analysisId])
 
   const selectedOneCardStarterEntries = mainDeckEntries.filter((entry) =>
     selectedOneCardStarterIds.includes(entry.id),
@@ -66,17 +61,14 @@ function AnalysisRouteComponent() {
     0,
   )
 
-  const selectedTwoCardStarter =
-    mainDeckEntries.find((entry) => entry.id === selectedTwoCardStarterId) ??
-    firstMainDeckEntry
-  const selectedStarterIsAlreadyOneCardStarter =
-    selectedTwoCardStarter !== null &&
-    selectedOneCardStarterIds.includes(selectedTwoCardStarter.id)
+  const selectedTwoCardStarterEntries = mainDeckEntries.filter((entry) =>
+    selectedTwoCardStarterIds.includes(entry.id),
+  )
+  const selectedTwoCardStarterExclusiveCopies = selectedTwoCardStarterEntries
+    .filter((entry) => !selectedOneCardStarterIds.includes(entry.id))
+    .reduce((sum, entry) => sum + entry.copies, 0)
   const excludedCopiesForSupplements =
-    starterCopies +
-    (selectedTwoCardStarter && !selectedStarterIsAlreadyOneCardStarter
-      ? selectedTwoCardStarter.copies
-      : 0)
+    starterCopies + selectedTwoCardStarterExclusiveCopies
   const maxPureSupplementCopies = Math.max(
     mainDeckSize - excludedCopiesForSupplements,
     0,
@@ -91,9 +83,7 @@ function AnalysisRouteComponent() {
   const combinedStarterResult = calculateCombinedStarterRate({
     deckSize: mainDeckSize,
     oneCardStarterCopies: starterCopies,
-    selectedTwoCardStarter,
-    selectedTwoCardStarterIncludedInOneCardPool:
-      selectedStarterIsAlreadyOneCardStarter,
+    selectedTwoCardStarterCopies: selectedTwoCardStarterExclusiveCopies,
     twoCardSupplementCopies,
   })
 
@@ -106,22 +96,26 @@ function AnalysisRouteComponent() {
         maxTwoCardSupplementCopies: maxPureSupplementCopies,
         selectedOneCardStarterEntries,
         selectedOneCardStarterIds,
-        selectedTwoCardStarter,
+        selectedTwoCardStarterEntries,
+        selectedTwoCardStarterIds,
         mainDeckEntries,
         sourceName: analysis.sourceName,
         starterCopies,
         twoCardSupplementCopies,
+        clearTwoCardStarterSelections: () => setSelectedTwoCardStarterIds([]),
         toggleOneCardStarterSelection: (value) =>
           setSelectedOneCardStarterIds((current) =>
             current.includes(value)
               ? current.filter((id) => id !== value)
               : [...current, value],
           ),
-        updateSelectedTwoCardStarter: (value) =>
-          setSelectedTwoCardStarterId(
-            mainDeckEntries.find((entry) => entry.id === value)?.id ??
-              firstMainDeckEntry?.id ??
-              null,
+        toggleTwoCardStarterSelection: (value) =>
+          setSelectedTwoCardStarterIds((current) =>
+            current.includes(value)
+              ? current.filter((id) => id !== value)
+              : mainDeckEntries.find((entry) => entry.id === value)
+                ? [...current, value]
+                : current,
           ),
         updateTwoCardSupplementCopies: (value) =>
           setTwoCardSupplementCopies(

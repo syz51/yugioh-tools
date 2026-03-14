@@ -650,6 +650,10 @@ code {
   gap: 10px;
 }
 
+.starter-selection-toolbar-single {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .starter-selection-toolbar div {
   display: grid;
   gap: 4px;
@@ -823,6 +827,11 @@ code {
   outline-offset: 2px;
 }
 
+.starter-count-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .starter-select {
   appearance: none;
   font: 600 0.98rem/1.35 var(--headline-font);
@@ -835,6 +844,35 @@ code {
   border: 1px solid rgba(255, 245, 232, 0.06);
   border-radius: 8px;
   background: rgba(255, 245, 232, 0.03);
+}
+
+.starter-main-card-summary {
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(216, 171, 109, 0.14), transparent 55%),
+    rgba(255, 245, 232, 0.03);
+}
+
+.starter-main-card-art {
+  overflow: hidden;
+  aspect-ratio: 240 / 350;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 35%),
+    rgba(8, 5, 7, 0.36);
+}
+
+.starter-main-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.starter-main-card-copy {
+  display: grid;
+  gap: 8px;
 }
 
 .starter-pick-grid {
@@ -876,6 +914,10 @@ code {
 .starter-pick-card.is-selected {
   border-color: rgba(216, 171, 109, 0.28);
   background: rgba(216, 171, 109, 0.08);
+}
+
+.starter-pick-card.is-primary-selected {
+  box-shadow: inset 0 0 0 1px rgba(216, 171, 109, 0.18);
 }
 
 .starter-pick-art {
@@ -936,6 +978,17 @@ code {
   color: var(--text-dim);
   font: 500 0.74rem/1.4 var(--mono-font);
   word-break: break-all;
+}
+
+.starter-main-card-flag {
+  width: fit-content;
+  padding: 4px 7px;
+  border: 1px solid rgba(216, 171, 109, 0.16);
+  border-radius: 999px;
+  background: rgba(216, 171, 109, 0.09);
+  color: var(--text-soft);
+  font: 700 0.68rem/1 var(--mono-font);
+  letter-spacing: 0.04em;
 }
 
 .preset-chip,
@@ -1383,6 +1436,14 @@ code {
 
   .starter-pick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .starter-main-card-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .starter-main-card-art {
+    max-width: 112px;
   }
 
   .starter-config-tabs .section-tab {

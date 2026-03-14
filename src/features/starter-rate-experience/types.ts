@@ -65,11 +65,13 @@ export type DeckAnalysisModel = {
   maxTwoCardSupplementCopies: number
   selectedOneCardStarterEntries: DeckCardView[]
   selectedOneCardStarterIds: string[]
-  selectedTwoCardStarter: DeckCardView | null
+  selectedTwoCardStarterEntries: DeckCardView[]
+  selectedTwoCardStarterIds: string[]
   sourceName: string | null
   starterCopies: number
   twoCardSupplementCopies: number
+  clearTwoCardStarterSelections: () => void
   toggleOneCardStarterSelection: (value: string) => void
-  updateSelectedTwoCardStarter: (value: string) => void
+  toggleTwoCardStarterSelection: (value: string) => void
   updateTwoCardSupplementCopies: (value: number) => void
 }
