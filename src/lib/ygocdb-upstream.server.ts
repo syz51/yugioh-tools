@@ -12,7 +12,7 @@ export async function loadDeckCardFromYgocdb(
     return {
       id: cardId,
       status: 'missing',
-      message: `YGOCDB returned ${response.status} for card ${cardId}.`,
+      message: `YGOCDB 返回了 ${response.status}，暂时无法获取卡号 ${cardId} 的资料。`,
     }
   }
 
@@ -22,7 +22,7 @@ export async function loadDeckCardFromYgocdb(
     return {
       id: cardId,
       status: 'missing',
-      message: `YGOCDB returned an incomplete record for card ${cardId}.`,
+      message: `YGOCDB 返回的卡号 ${cardId} 资料不完整。`,
     }
   }
 

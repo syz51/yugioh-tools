@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;800&family=Noto+Serif+SC:wght@600;700&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
@@ -19,9 +19,9 @@
   --wine: #7d3640;
   --danger: #ef9b95;
   --shadow: rgba(0, 0, 0, 0.34);
-  --headline-font: 'Alegreya Sans', sans-serif;
-  --number-font: 'Fraunces', serif;
-  --mono-font: 'IBM Plex Mono', monospace;
+  --headline-font: 'Noto Sans SC', sans-serif;
+  --number-font: 'Noto Serif SC', serif;
+  --mono-font: 'JetBrains Mono', monospace;
 }
 
 *,

@@ -7,7 +7,7 @@ export default function Header() {
       <nav className="page-wrap site-nav">
         <Link to="/" className="site-brand">
           <span className="site-brand-mark" aria-hidden="true" />
-          <span>Yu-Gi-Oh Tools</span>
+          <span>游戏王工具</span>
         </Link>
 
         <div className="site-links">
@@ -16,7 +16,7 @@ export default function Header() {
             className="site-link"
             activeProps={{ className: 'site-link is-active' }}
           >
-            Deck Viewer
+            卡组查看
           </Link>
         </div>
 

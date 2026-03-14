@@ -12,8 +12,10 @@ import {
 import type { DeckSection } from '../lib/ydk'
 import type { DeckCardLookup } from '../lib/ygocdb'
 import {
+  APP_LOCALE,
   fetchDeckCards,
   getCardImageUrl,
+  getLocalizedCardDetails,
   getPreferredCardName,
 } from '../lib/ygocdb'
 
@@ -50,9 +52,9 @@ type DeckViewMode = 'table' | 'compact-main'
 const SECTION_ORDER: DeckSection[] = ['main', 'extra', 'side']
 
 const SECTION_LABELS: Record<DeckSection, string> = {
-  main: 'Main Deck',
-  extra: 'Extra Deck',
-  side: 'Side Deck',
+  main: '主卡组',
+  extra: '额外卡组',
+  side: '副卡组',
 }
 
 const MAX_UPLOAD_BYTES = 256 * 1024
@@ -60,6 +62,7 @@ const MAX_DECK_CARD_LINES = 256
 const MAX_UNIQUE_CARD_IDS = 128
 const CARD_FETCH_CONCURRENCY = 8
 
+const SAMPLE_DECK_NAME = '示例-青眼白龙.ydk'
 const SAMPLE_YDK = `#created by YGO Tools
 #main
 89631139
@@ -122,7 +125,7 @@ export function StarterRateExperiencePage() {
       <section className="experience-topbar">
         <Link className="experience-brand" to="/">
           <span className="experience-brand-mark" aria-hidden="true" />
-          <span>Yu-Gi-Oh Starter Rate</span>
+          <span>游戏王启动率计算器</span>
         </Link>
       </section>
 
@@ -265,14 +268,14 @@ function useDeckWorkbench() {
           pools: [
             {
               id: 'one-card-starters',
-              label: 'One-card starters',
+              label: '一卡动',
               copies: starterCopies,
             },
           ],
           recipes: [
             {
               id: 'one-card-starter',
-              label: 'Any one-card starter',
+              label: '任意一卡动',
               requirements: [{ poolId: 'one-card-starters', count: 1 }],
             },
           ],
@@ -291,7 +294,7 @@ function useDeckWorkbench() {
       setDeckView(null)
       setStage('landing')
       setErrorMessage(
-        'The deck is empty. Upload a .ydk file or paste valid YDK text with main, extra, or side sections.',
+        '卡组内容为空。请上传 .ydk 文件，或粘贴包含 main、extra、side 段落的有效 YDK 文本。',
       )
       return
     }
@@ -345,7 +348,7 @@ function useDeckWorkbench() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Unable to load card data from YGOCDB right now.',
+          : '暂时无法从 YGOCDB 拉取卡片资料。',
       )
     } finally {
       if (latestRequestRef.current === requestId) {
@@ -365,9 +368,9 @@ function useDeckWorkbench() {
       setDeckView(null)
       setStage('landing')
       setErrorMessage(
-        `The selected file is too large. Keep YDK uploads under ${formatByteLimit(
+        `文件过大，请将 YDK 文件控制在 ${formatByteLimit(
           MAX_UPLOAD_BYTES,
-        )}.`,
+        )} 以内。`,
       )
       return
     }
@@ -380,8 +383,8 @@ function useDeckWorkbench() {
 
   function loadSampleDeck() {
     setDraftText(SAMPLE_YDK)
-    setSourceName('sample-blue-eyes.ydk')
-    void importDeck(SAMPLE_YDK, 'sample-blue-eyes.ydk')
+    setSourceName(SAMPLE_DECK_NAME)
+    void importDeck(SAMPLE_YDK, SAMPLE_DECK_NAME)
   }
 
   function clearWorkspace() {
@@ -431,17 +434,6 @@ function LandingDeckInput({
   return (
     <section className="surface-panel deck-input-panel">
       <div className="panel-header-row deck-input-header">
-        <div className="deck-input-intro">
-          <p className="panel-kicker">Stage one</p>
-          <p className="deck-input-note">
-            Use this panel to get a deck into the tool. As soon as the import
-            resolves, the page moves straight to the starter board.
-          </p>
-          <p className="deck-input-helper">
-            Upload, paste, or load a sample deck. You do not need to inspect
-            the raw <code>.ydk</code> text here.
-          </p>
-        </div>
         <input
           id={inputId}
           className="sr-only"
@@ -460,7 +452,7 @@ function LandingDeckInput({
         />
         <div className="deck-input-actions">
           <label className="primary-button" htmlFor={inputId}>
-            Upload .ydk
+            上传 .ydk
           </label>
           <button
             className="secondary-button"
@@ -468,7 +460,7 @@ function LandingDeckInput({
             disabled={model.isLoading}
             onClick={model.loadSampleDeck}
           >
-            Load sample deck
+            载入示例卡组
           </button>
           <button
             className="secondary-button ghost"
@@ -476,7 +468,7 @@ function LandingDeckInput({
             disabled={model.isLoading}
             onClick={model.clearWorkspace}
           >
-            Clear
+            清空
           </button>
         </div>
       </div>
@@ -491,11 +483,11 @@ function LandingDeckInput({
         }}
       >
         <label className="deck-text-block" htmlFor={`${inputId}-editor`}>
-          <span>Quick paste</span>
+          <span>直接粘贴</span>
           <textarea
             id={`${inputId}-editor`}
             className="deck-editor"
-            placeholder={`#created by Your Name\n#main\n89631139\n89631139\n#extra\n!side`}
+            placeholder={`#created by 你的名字\n#main\n89631139\n89631139\n#extra\n!side`}
             value={model.draftText}
             onChange={(event) => model.setDraftText(event.target.value)}
           />
@@ -503,11 +495,11 @@ function LandingDeckInput({
 
         <div className="deck-submit-row">
           <button className="primary-button" type="submit">
-            {model.isLoading ? 'Loading deck...' : 'Load into starter board'}
+            {model.isLoading ? '正在载入卡组...' : '导入并开始分析'}
           </button>
           <div className="deck-limit-note">
-            {MAX_DECK_CARD_LINES} lines · {MAX_UNIQUE_CARD_IDS} unique cards ·{' '}
-            {formatByteLimit(MAX_UPLOAD_BYTES)} max upload
+            最多 {MAX_DECK_CARD_LINES} 行 · 最多 {MAX_UNIQUE_CARD_IDS} 张不同卡
+            · 文件上限 {formatByteLimit(MAX_UPLOAD_BYTES)}
           </div>
         </div>
       </form>
@@ -519,54 +511,48 @@ function ImportGuidePanel() {
   return (
     <section className="surface-panel guide-panel">
       <div className="guide-panel-head">
-        <p className="panel-kicker">How to use this tool</p>
-        <h2>Import once, then make decisions on the next screen.</h2>
-        <p className="guide-panel-note">
-          Stage one is only the handoff. The real work starts after the deck is
-          parsed and the starter-rate workspace opens.
-        </p>
+        <p className="panel-kicker">使用说明</p>
+        <h2>导入卡组，计算先手启动率。</h2>
       </div>
       <div className="guide-list">
         <article>
-          <strong>1. Bring in your list</strong>
+          <strong>1. 把卡表丢进来</strong>
           <p>
-            Upload a simulator-exported <code>.ydk</code> file, paste raw deck
-            text, or load the sample deck if you just want to test the flow.
+            上传模拟器导出的 <code>.ydk</code>{' '}
+            文件，直接粘贴卡组文本，或者先用示例卡组试一下流程都可以。
           </p>
         </article>
         <article>
-          <strong>2. Let the import finish</strong>
+          <strong>2. 等它解析完成</strong>
           <p>
-            The app resolves card data and automatically advances to the
-            starter board as soon as the list is ready.
+            系统会去补全卡片资料，准备好之后会自动跳到起手率面板，不需要手动切页。
           </p>
         </article>
         <article>
-          <strong>3. Set starter copies and read the rate</strong>
+          <strong>3. 填一卡动数量，看命中率</strong>
           <p>
-            On the next screen, enter how many one-card starters exist in the
-            main deck and the tool returns the exact opening-hand percentage.
+            在下一页输入主卡组里一共放了多少张一卡动，工具就会给出准确的起手命中率。
           </p>
         </article>
       </div>
 
       <dl className="guide-facts">
         <div>
-          <dt>Accepted input</dt>
-          <dd>.ydk upload or raw text paste</dd>
+          <dt>支持输入</dt>
+          <dd>上传 .ydk 或直接粘贴文本</dd>
         </div>
         <div>
-          <dt>Stage transition</dt>
-          <dd>Automatic after a successful import</dd>
+          <dt>切换方式</dt>
+          <dd>导入成功后自动进入分析页</dd>
         </div>
         <div>
-          <dt>Starter logic</dt>
-          <dd>Main deck only</dd>
+          <dt>统计范围</dt>
+          <dd>目前只计算主卡组的一卡动</dd>
         </div>
         <div>
-          <dt>Current limits</dt>
+          <dt>当前限制</dt>
           <dd>
-            {MAX_DECK_CARD_LINES} lines · {MAX_UNIQUE_CARD_IDS} unique ·{' '}
+            {MAX_DECK_CARD_LINES} 行 · {MAX_UNIQUE_CARD_IDS} 张不同卡 ·{' '}
             {formatByteLimit(MAX_UPLOAD_BYTES)}
           </dd>
         </div>
@@ -581,15 +567,15 @@ function ImportStatusBanner({ model }: { model: WorkbenchModel }) {
       {model.errorMessage ? (
         <p className="status-message is-error">{model.errorMessage}</p>
       ) : model.isLoading ? (
-        <p className="status-message">Summoning card data from YGOCDB...</p>
+        <p className="status-message">正在从 YGOCDB 拉取卡片资料...</p>
       ) : model.deckView ? (
         <p className="status-message">
-          {getTotalCards(model.deckView)} cards loaded from{' '}
-          {model.deckView.sourceName ?? 'the pasted deck'}.
+          已载入 {getTotalCards(model.deckView)} 张卡，来源：
+          {model.deckView.sourceName ?? '粘贴的卡组文本'}。
         </p>
       ) : (
         <p className="status-message">
-          No deck loaded yet. Import a list to unlock the starter board.
+          还没有导入卡组。先把卡表放进来，才能开始看起手率。
         </p>
       )}
     </section>
@@ -600,19 +586,19 @@ function ConfigHero({ model }: { model: WorkbenchModel }) {
   return (
     <section className="surface-panel config-hero analysis-hero">
       <div className="analysis-toolbar-title">
-        <p className="panel-kicker">Starter-rate workspace</p>
-        <h2>Opening-hand analysis</h2>
+        <p className="panel-kicker">起手率面板</p>
+        <h2>起手分析</h2>
       </div>
 
       <div className="analysis-toolbar-stats">
         <div>
-          <span>Main deck</span>
+          <span>主卡组</span>
           <strong>{model.mainDeckSize}</strong>
         </div>
         <div>
-          <span>Source</span>
+          <span>来源</span>
           <strong>
-            {model.deckView?.sourceName ?? model.sourceName ?? 'Pasted'}
+            {model.deckView?.sourceName ?? model.sourceName ?? '直接粘贴'}
           </strong>
         </div>
       </div>
@@ -623,7 +609,7 @@ function ConfigHero({ model }: { model: WorkbenchModel }) {
           type="button"
           onClick={() => model.setStage('landing')}
         >
-          Back to import
+          返回导入页
         </button>
       </div>
     </section>
@@ -643,13 +629,13 @@ function StarterCountPanel({ model }: { model: WorkbenchModel }) {
     <section className="surface-panel side-panel starter-count-panel">
       <div className="panel-header-row compact">
         <div>
-          <p className="panel-kicker">Starter Input</p>
-          <h2>Set the live one-card starter count.</h2>
+          <p className="panel-kicker">起手点设置</p>
+          <h2>填写当前的一卡动总数。</h2>
         </div>
       </div>
 
       <label className="starter-count-field" htmlFor="starter-count-input">
-        <span>Total starter copies in main deck</span>
+        <span>主卡组内一卡动总张数</span>
         <input
           id="starter-count-input"
           className="starter-count-input"
@@ -685,13 +671,13 @@ function RateBoard({ model }: { model: WorkbenchModel }) {
 
   return (
     <section className="surface-panel rate-panel">
-      <p className="panel-kicker">Opening Hand Rate</p>
+      <p className="panel-kicker">起手命中率</p>
       <div className="rate-panel-main">
         <strong>{formatPercent(startRate)}</strong>
         <span>
           {model.starterCopies === 0
-            ? 'Enter a starter count above to calculate.'
-            : 'This pass only calculates the total one-card starter rate. Recipe-level splits for 2-card and 3-card starters need combo rules first.'}
+            ? '先在上方填入一卡动数量，这里会自动计算。'
+            : '当前版本只计算一卡动总命中率。二卡动、三卡动和更细的组合拆分，还需要先补充连锁规则。'}
         </span>
       </div>
     </section>
@@ -708,9 +694,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
   if (!model.deckView) {
     return (
       <section className="surface-panel starter-grid-panel">
-        <p className="empty-panel-copy">
-          Load a deck first to open the analysis page.
-        </p>
+        <p className="empty-panel-copy">请先导入卡组，再进入分析页。</p>
       </section>
     )
   }
@@ -758,8 +742,8 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
     >
       <div className="panel-header-row">
         <div>
-          <p className="panel-kicker">Deck Reference</p>
-          <h2>Open the uploaded list only when you need a deck check.</h2>
+          <p className="panel-kicker">卡组对照</p>
+          <h2>需要核对卡表时，再展开查看。</h2>
         </div>
         <button
           className="secondary-button deck-reference-toggle"
@@ -767,38 +751,32 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
           aria-expanded={isExpanded}
           onClick={() => setIsExpanded((current) => !current)}
         >
-          {isExpanded ? 'Hide deck list' : 'Open deck list'}
+          {isExpanded ? '收起卡表' : '展开卡表'}
         </button>
       </div>
 
       <p className="starter-grid-note">
-        Stage two stays focused on the opening-hand rate. Open the imported deck
-        only when you need to verify names, counts, or section splits before
-        adding combo-specific rules later.
+        这一页默认把注意力放在起手率上。只有在你想核对卡名、张数或主额副分区时，再把卡表展开就行。
       </p>
 
       <div className="deck-stage-meta">
         <div>
-          <span>Main deck</span>
+          <span>主卡组</span>
           <strong>{model.mainDeckSize}</strong>
         </div>
         <div>
-          <span>Unique cards</span>
+          <span>不同卡片</span>
           <strong>{model.deckView.uniqueCards}</strong>
         </div>
         <div>
-          <span>Missing cards</span>
+          <span>缺失资料</span>
           <strong>{model.deckView.missingCards}</strong>
         </div>
       </div>
 
       {isExpanded ? (
         <div className="deck-reference-shell">
-          <div
-            className="section-tabs"
-            role="tablist"
-            aria-label="Deck sections"
-          >
+          <div className="section-tabs" role="tablist" aria-label="卡组分区">
             {SECTION_ORDER.map((section) => {
               const totalCards =
                 model.deckView?.sections.find((entry) => entry.key === section)
@@ -825,7 +803,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
             <div
               className="deck-view-mode-toggle"
               role="tablist"
-              aria-label="Deck view mode"
+              aria-label="卡表视图模式"
             >
               <button
                 className={`section-tab ${
@@ -836,7 +814,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                 aria-selected={viewMode === 'table'}
                 onClick={() => setViewMode('table')}
               >
-                Sortable table
+                表格视图
               </button>
               <button
                 className={`section-tab ${showCompactView ? 'is-active' : ''}`}
@@ -846,8 +824,8 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                 disabled={!compactViewAvailable}
                 title={
                   compactViewAvailable
-                    ? 'Show a compact text list for the main deck.'
-                    : 'Compact mode is only available for the main deck.'
+                    ? '以高密度文本列表显示主卡组。'
+                    : '紧凑视图目前只支持主卡组。'
                 }
                 onClick={() => {
                   if (compactViewAvailable) {
@@ -855,21 +833,18 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                   }
                 }}
               >
-                Main deck only
+                主卡组紧凑视图
               </button>
             </div>
             <p className="deck-view-toolbar-note">
               {showCompactView
-                ? 'Extreme-density text mode for the main deck.'
-                : 'Click column headers to sort the current section.'}
+                ? '主卡组高密度文本模式。'
+                : '点击表头可以对当前分区排序。'}
             </p>
           </div>
 
           {showCompactView ? (
-            <div
-              className="deck-compact-list"
-              aria-label="Compact main deck list"
-            >
+            <div className="deck-compact-list" aria-label="主卡组紧凑列表">
               {sortedEntries.map((entry) => (
                 <div
                   className="deck-compact-line"
@@ -886,14 +861,14 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
               <table className="deck-table">
                 <thead>
                   <tr>
-                    <th scope="col">Art</th>
+                    <th scope="col">卡图</th>
                     <th scope="col">
                       <button
                         className="deck-sort-button"
                         type="button"
                         onClick={() => handleSortChange('name')}
                       >
-                        Card
+                        卡名
                         <span aria-hidden="true">
                           {sortKey === 'name'
                             ? getSortDirectionMark(sortDirection)
@@ -907,7 +882,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                         type="button"
                         onClick={() => handleSortChange('copies')}
                       >
-                        Copies
+                        数量
                         <span aria-hidden="true">
                           {sortKey === 'copies'
                             ? getSortDirectionMark(sortDirection)
@@ -921,7 +896,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                         type="button"
                         onClick={() => handleSortChange('id')}
                       >
-                        Password
+                        卡号
                         <span aria-hidden="true">
                           {sortKey === 'id'
                             ? getSortDirectionMark(sortDirection)
@@ -935,7 +910,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                         type="button"
                         onClick={() => handleSortChange('details')}
                       >
-                        Notes
+                        信息
                         <span aria-hidden="true">
                           {sortKey === 'details'
                             ? getSortDirectionMark(sortDirection)
@@ -976,9 +951,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                         </span>
                       </td>
                       <td className="deck-table-id-cell">
-                        {entry.status === 'missing'
-                          ? 'Missing card data'
-                          : entry.id}
+                        {entry.status === 'missing' ? '资料缺失' : entry.id}
                       </td>
                       <td>
                         <div className="deck-list-meta">
@@ -988,7 +961,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
                             </span>
                           ) : (
                             <span className="deck-list-detail">
-                              No extra card text cached.
+                              暂无更多资料。
                             </span>
                           )}
                         </div>
@@ -1010,8 +983,7 @@ function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
             ))}
           </div>
           <p className="deck-reference-collapsed-note">
-            Deck preview stays collapsed by default so the starter-rate math
-            remains the primary job on this page.
+            默认收起卡表，方便你先把注意力放在起手率计算上。
           </p>
         </div>
       )}
@@ -1034,11 +1006,10 @@ function buildDeckView(
             id: entry.id,
             copies: entry.copies,
             status: 'missing' as const,
-            name: `Unknown card ${entry.id}`,
+            name: `未识别卡片 ${entry.id}`,
             imageUrl: null,
             details: [
-              lookupEntry?.message ??
-                `No card data was returned for password ${entry.id}.`,
+              lookupEntry?.message ?? `未返回卡号 ${entry.id} 的卡片资料。`,
             ],
           }
         }
@@ -1049,11 +1020,7 @@ function buildDeckView(
           status: 'ready' as const,
           name: getPreferredCardName(lookupEntry.card, entry.id),
           imageUrl: getCardImageUrl(entry.id),
-          details: (lookupEntry.card.text.types ?? '')
-            .split('\n')
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .slice(0, 2),
+          details: getLocalizedCardDetails(lookupEntry.card),
         }
       },
     )
@@ -1068,7 +1035,7 @@ function buildDeckView(
 
   return {
     createdBy: parsedDeck.createdBy,
-    importedAt: new Intl.DateTimeFormat(undefined, {
+    importedAt: new Intl.DateTimeFormat(APP_LOCALE, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date()),
@@ -1092,19 +1059,19 @@ function getDeckImportLimitError(
 ) {
   const textBytes = new TextEncoder().encode(deckText).length
   if (textBytes > MAX_UPLOAD_BYTES) {
-    return `The pasted deck is too large. Keep YDK text under ${formatByteLimit(
+    return `粘贴的卡组文本过大，请控制在 ${formatByteLimit(
       MAX_UPLOAD_BYTES,
-    )}.`
+    )} 以内。`
   }
 
   const totalCards = getDeckCardCount(parsedDeck)
   if (totalCards > MAX_DECK_CARD_LINES) {
-    return `This import lists ${totalCards} cards. The viewer currently accepts at most ${MAX_DECK_CARD_LINES} card lines per deck.`
+    return `这次导入共包含 ${totalCards} 行卡片。当前版本每副卡组最多支持 ${MAX_DECK_CARD_LINES} 行。`
   }
 
   const uniqueCards = getUniqueDeckCardCount(parsedDeck)
   if (uniqueCards > MAX_UNIQUE_CARD_IDS) {
-    return `This import has ${uniqueCards} unique passwords. The viewer currently accepts at most ${MAX_UNIQUE_CARD_IDS} unique cards per deck.`
+    return `这次导入包含 ${uniqueCards} 张不同卡片。当前版本每副卡组最多支持 ${MAX_UNIQUE_CARD_IDS} 张不同卡。`
   }
 
   return null
@@ -1115,7 +1082,7 @@ function formatByteLimit(bytes: number) {
 }
 
 function formatPercent(value: number) {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(APP_LOCALE, {
     style: 'percent',
     maximumFractionDigits: 1,
   }).format(value)
@@ -1146,19 +1113,25 @@ function sortDeckEntries(
     if (sortKey === 'copies') {
       comparison = left.copies - right.copies
     } else if (sortKey === 'id') {
-      comparison = left.id.localeCompare(right.id, undefined, { numeric: true })
+      comparison = left.id.localeCompare(right.id, APP_LOCALE, {
+        numeric: true,
+      })
     } else if (sortKey === 'details') {
-      comparison = left.details.join(' ').localeCompare(right.details.join(' '))
+      comparison = left.details
+        .join(' ')
+        .localeCompare(right.details.join(' '), APP_LOCALE)
     } else {
-      comparison = left.name.localeCompare(right.name)
+      comparison = left.name.localeCompare(right.name, APP_LOCALE)
     }
 
     if (comparison === 0) {
-      comparison = left.name.localeCompare(right.name)
+      comparison = left.name.localeCompare(right.name, APP_LOCALE)
     }
 
     if (comparison === 0) {
-      comparison = left.id.localeCompare(right.id, undefined, { numeric: true })
+      comparison = left.id.localeCompare(right.id, APP_LOCALE, {
+        numeric: true,
+      })
     }
 
     return comparison * direction
@@ -1167,22 +1140,4 @@ function sortDeckEntries(
 
 function getSortDirectionMark(direction: 'asc' | 'desc') {
   return direction === 'asc' ? '↑' : '↓'
-}
-
-function choose(n: number, k: number) {
-  if (k < 0 || k > n) {
-    return 0
-  }
-
-  const normalizedK = Math.min(k, n - k)
-  if (normalizedK === 0) {
-    return 1
-  }
-
-  let result = 1
-  for (let index = 1; index <= normalizedK; index += 1) {
-    result = (result * (n - normalizedK + index)) / index
-  }
-
-  return result
 }

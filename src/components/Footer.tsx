@@ -4,11 +4,8 @@ export default function Footer() {
   return (
     <footer className="site-footer">
       <div className="page-wrap site-footer-inner">
-        <p>&copy; {year} Yu-Gi-Oh Tools</p>
-        <p>
-          Upload YDK files, resolve card data, and review the full deck on one
-          screen.
-        </p>
+        <p>&copy; {year} 游戏王工具</p>
+        <p>上传 YDK 文件，补全卡片资料，并在同一页核对整副卡组。</p>
       </div>
     </footer>
   )

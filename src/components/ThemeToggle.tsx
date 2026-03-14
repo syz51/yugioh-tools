@@ -64,8 +64,10 @@ export default function ThemeToggle() {
 
   const label =
     mode === 'auto'
-      ? 'Theme mode: auto (system). Click to switch to light mode.'
-      : `Theme mode: ${mode}. Click to switch mode.`
+      ? '当前为跟随系统主题，点击切换到浅色模式。'
+      : mode === 'dark'
+        ? '当前为深色模式，点击切换到跟随系统。'
+        : '当前为浅色模式，点击切换到深色模式。'
 
   return (
     <button
@@ -75,7 +77,7 @@ export default function ThemeToggle() {
       title={label}
       className="theme-button"
     >
-      {mode === 'auto' ? 'Auto' : mode === 'dark' ? 'Dark' : 'Light'}
+      {mode === 'auto' ? '跟随系统' : mode === 'dark' ? '深色' : '浅色'}
     </button>
   )
 }
