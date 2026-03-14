@@ -8,7 +8,6 @@ import {
   getDeckConstructionError,
   getDeckCardCount,
   getDeckCardIds,
-  getUniqueDeckCardCount,
   MAIN_DECK_MAX_CARDS,
   MAIN_DECK_MIN_CARDS,
   parseYdk,
@@ -503,7 +502,8 @@ function LandingDeckInput({
           <div className="deck-limit-note">
             主卡组 {MAIN_DECK_MIN_CARDS} - {MAIN_DECK_MAX_CARDS} 张 ·
             额外卡组最多 {EXTRA_DECK_MAX_CARDS} 张 · 副卡组最多{' '}
-            {SIDE_DECK_MAX_CARDS} 张 · 文件上限 {formatByteLimit(MAX_UPLOAD_BYTES)}
+            {SIDE_DECK_MAX_CARDS} 张 · 文件上限{' '}
+            {formatByteLimit(MAX_UPLOAD_BYTES)}
           </div>
         </div>
       </form>
@@ -568,9 +568,9 @@ function ImportGuidePanel() {
         <div>
           <dt>当前限制</dt>
           <dd>
-            主卡组 {MAIN_DECK_MIN_CARDS} - {MAIN_DECK_MAX_CARDS} 张 · 额外卡组最多{' '}
-            {EXTRA_DECK_MAX_CARDS} 张 · 副卡组最多 {SIDE_DECK_MAX_CARDS} 张 ·{' '}
-            {formatByteLimit(MAX_UPLOAD_BYTES)}
+            主卡组 {MAIN_DECK_MIN_CARDS} - {MAIN_DECK_MAX_CARDS} 张 ·
+            额外卡组最多 {EXTRA_DECK_MAX_CARDS} 张 · 副卡组最多{' '}
+            {SIDE_DECK_MAX_CARDS} 张 · {formatByteLimit(MAX_UPLOAD_BYTES)}
           </dd>
         </div>
       </dl>
