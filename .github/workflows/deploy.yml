@@ -79,7 +79,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_REPOSITORY }}
+          images: ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/${{ secrets.TCR_REPOSITORY }}
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
@@ -106,7 +106,7 @@ jobs:
 
       - name: Record immutable image reference
         id: image_ref
-        run: echo "image_ref=${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_REPOSITORY }}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+        run: echo "image_ref=${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/${{ secrets.TCR_REPOSITORY }}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Trigger Dokploy
