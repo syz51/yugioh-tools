@@ -28,7 +28,7 @@
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-router-ssr-query": "latest",
     "@tanstack/react-start": "latest",
-    "@tanstack/router-plugin": "^1.166.7",
+    "@tanstack/router-plugin": "^1.166.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.9",
@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
-    "@netlify/vite-plugin-tanstack-start": "^1.2.21",
+    "@netlify/vite-plugin-tanstack-start": "^1.3.0",
     "@rolldown/plugin-babel": "^0.2.1",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/devtools-vite": "latest",
