@@ -1,10 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { StarterRateExperiencePage } from '../components/design-showcase'
+import { StarterRateExperiencePage } from '../features/starter-rate-experience'
 
 export const Route = createFileRoute('/')({
-  component: IndexPage,
+  component: StarterRateExperiencePage,
 })
-
-function IndexPage() {
-  return <StarterRateExperiencePage />
-}
