@@ -1,25 +1,23 @@
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { calculateOpeningHandProbabilities } from '../lib/opening-hand-calculator'
 import { StarterRateAnalysisPage } from '../features/starter-rate-experience'
-import { getDeckAnalysis } from '../features/starter-rate-experience/lib/deck-analysis.functions'
+import { deckAnalysisQueryOptions } from '../features/starter-rate-experience/lib/deck-analysis.query'
 import {
   clampStarterCopies,
   getDefaultStarterCopies,
 } from '../features/starter-rate-experience/lib/utils'
 
 export const Route = createFileRoute('/analysis/$analysisId')({
-  loader: async ({ params }) =>
-    getDeckAnalysis({
-      data: {
-        analysisId: params.analysisId,
-      },
-    }),
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(deckAnalysisQueryOptions(params.analysisId)),
   component: AnalysisRouteComponent,
 })
 
 function AnalysisRouteComponent() {
-  const analysis = Route.useLoaderData()
+  const { analysisId } = Route.useParams()
+  const analysis = useSuspenseQuery(deckAnalysisQueryOptions(analysisId)).data
 
   if (!analysis) {
     return <MissingAnalysisPage />

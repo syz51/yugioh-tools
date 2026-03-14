@@ -63,9 +63,12 @@ export async function createPersistedDeckAnalysis({
     })
     .returning()
 
+  const analysis = serializeDeckAnalysisRecord(row)
+
   return {
-    analysisId: row.id,
-    defaultStarterCopies: getDefaultStarterCopies(payload.mainDeckSize),
+    analysis,
+    analysisId: analysis.id,
+    defaultStarterCopies: getDefaultStarterCopies(analysis.payload.mainDeckSize),
   }
 }
 

@@ -1,17 +1,40 @@
 import { startTransition, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { getDeckCardCount, parseYdk } from '../../../lib/ydk'
 import { createDeckAnalysis } from '../lib/deck-analysis.functions'
+import { deckAnalysisQueryOptions } from '../lib/deck-analysis.query'
 import { MAX_UPLOAD_BYTES, SAMPLE_DECK_NAME, SAMPLE_YDK } from '../lib/constants'
 import { formatByteLimit, getDeckImportLimitError } from '../lib/utils'
 
 export function useDeckImport() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const latestRequestRef = useRef(0)
   const [draftText, setDraftText] = useState('')
   const [sourceName, setSourceName] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const createDeckAnalysisMutation = useMutation({
+    mutationFn: ({
+      deckText,
+      nextSourceName,
+    }: {
+      deckText: string
+      nextSourceName: string | null
+    }) =>
+      createDeckAnalysis({
+        data: {
+          deckText,
+          sourceName: nextSourceName,
+        },
+      }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        deckAnalysisQueryOptions(result.analysisId).queryKey,
+        result.analysis,
+      )
+    },
+  })
 
   async function importDeck(deckText: string, nextSourceName: string | null) {
     const parsed = parseYdk(deckText)
@@ -32,15 +55,12 @@ export function useDeckImport() {
 
     const requestId = latestRequestRef.current + 1
     latestRequestRef.current = requestId
-    setIsLoading(true)
     setErrorMessage(null)
 
     try {
-      const result = await createDeckAnalysis({
-        data: {
-          deckText,
-          sourceName: nextSourceName,
-        },
+      const result = await createDeckAnalysisMutation.mutateAsync({
+        deckText,
+        nextSourceName,
       })
 
       if (latestRequestRef.current !== requestId) {
@@ -64,10 +84,6 @@ export function useDeckImport() {
           ? error.message
           : '暂时无法完成卡组分析，请稍后再试。',
       )
-    } finally {
-      if (latestRequestRef.current === requestId) {
-        setIsLoading(false)
-      }
     }
   }
 
@@ -95,10 +111,10 @@ export function useDeckImport() {
 
   function clearWorkspace() {
     latestRequestRef.current += 1
+    createDeckAnalysisMutation.reset()
     setDraftText('')
     setSourceName(null)
     setErrorMessage(null)
-    setIsLoading(false)
   }
 
   return {
@@ -107,7 +123,7 @@ export function useDeckImport() {
     errorMessage,
     handleFileSelection,
     importDeck,
-    isLoading,
+    isLoading: createDeckAnalysisMutation.isPending,
     loadSampleDeck,
     setDraftText,
     sourceName,
