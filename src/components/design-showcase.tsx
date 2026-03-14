@@ -521,6 +521,18 @@ function ImportGuidePanel() {
             上传模拟器导出的 <code>.ydk</code>{' '}
             文件，直接粘贴卡组文本，或者先用示例卡组试一下流程都可以。
           </p>
+          <p>
+            小提示：可以前往{' '}
+            <a
+              className="guide-inline-link"
+              href="https://get-deck.com/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GetDeck工具
+            </a>{' '}
+            将截图导出为 <code>.ydk</code>。
+          </p>
         </article>
         <article>
           <strong>2. 等它解析完成</strong>

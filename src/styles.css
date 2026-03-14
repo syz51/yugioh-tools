@@ -451,6 +451,18 @@ code {
   font: 700 1rem/1.25 var(--headline-font);
 }
 
+.guide-inline-link {
+  color: var(--gold-soft);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.16em;
+  font-weight: 700;
+}
+
+.guide-inline-link:hover {
+  color: var(--gold);
+}
+
 .guide-panel {
   display: grid;
   gap: 16px;
