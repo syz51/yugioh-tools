@@ -1,24 +1,15 @@
 import { useState } from 'react'
 import type { DeckSection } from '../../../lib/ydk'
-import type { WorkbenchModel } from '../hooks/use-deck-workbench'
 import { SECTION_LABELS, SECTION_ORDER } from '../lib/constants'
 import { getSortDirectionMark, sortDeckEntries } from '../lib/utils'
-import type { DeckSortKey, DeckViewMode } from '../types'
+import type { DeckAnalysisModel, DeckSortKey, DeckViewMode } from '../types'
 
-export function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
+export function DeckSectionViewer({ model }: { model: DeckAnalysisModel }) {
   const [activeSection, setActiveSection] = useState<DeckSection>('main')
   const [sortKey, setSortKey] = useState<DeckSortKey>('copies')
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
   const [viewMode, setViewMode] = useState<DeckViewMode>('table')
   const [isExpanded, setIsExpanded] = useState(false)
-
-  if (!model.deckView) {
-    return (
-      <section className="surface-panel starter-grid-panel">
-        <p className="empty-panel-copy">请先导入卡组，再进入分析页。</p>
-      </section>
-    )
-  }
 
   const activeDeckSection =
     model.deckView.sections.find((section) => section.key === activeSection) ??
@@ -100,7 +91,7 @@ export function DeckSectionViewer({ model }: { model: WorkbenchModel }) {
           <div className="section-tabs" role="tablist" aria-label="卡组分区">
             {SECTION_ORDER.map((section) => {
               const totalCards =
-                model.deckView?.sections.find((entry) => entry.key === section)
+                model.deckView.sections.find((entry) => entry.key === section)
                   ?.totalCards ?? 0
 
               return (

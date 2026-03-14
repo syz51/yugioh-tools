@@ -6,6 +6,7 @@ import {
   text,
   timestamp,
 } from 'drizzle-orm/pg-core'
+import type { DeckAnalysisPayload } from '../features/starter-rate-experience/types'
 import type { YgocdbCard } from '../lib/ygocdb'
 
 export const cardCache = pgTable(
@@ -32,3 +33,17 @@ export const ygocdbSyncState = pgTable('ygocdb_sync_state', {
     .defaultNow()
     .notNull(),
 })
+
+export const deckAnalysis = pgTable(
+  'deck_analysis',
+  {
+    id: text('id').primaryKey(),
+    deckText: text('deck_text').notNull(),
+    sourceName: text('source_name'),
+    payload: jsonb('payload').$type<DeckAnalysisPayload>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index('deck_analysis_created_at_idx').on(table.createdAt)],
+)

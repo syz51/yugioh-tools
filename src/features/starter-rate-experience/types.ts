@@ -1,3 +1,4 @@
+import type { OpeningHandCalculationResult } from '../../lib/opening-hand-calculator'
 import type { DeckSection } from '../../lib/ydk'
 import type { DeckCardLookup } from '../../lib/ygocdb'
 
@@ -27,6 +28,39 @@ export type DeckView = {
   sections: DeckSectionView[]
 }
 
+export type DeckAnalysisPayload = {
+  deckView: DeckView
+  mainDeckSize: number
+}
+
+export type DeckAnalysisRecord = {
+  id: string
+  deckText: string
+  sourceName: string | null
+  createdAt: string
+  payload: DeckAnalysisPayload
+}
+
 export type DeckSortKey = 'name' | 'copies' | 'id' | 'details'
 export type DeckViewMode = 'table' | 'compact-main'
-export type WorkbenchStage = 'landing' | 'config'
+
+export type DeckImportModel = {
+  clearWorkspace: () => void
+  draftText: string
+  errorMessage: string | null
+  handleFileSelection: (file: File) => Promise<void>
+  importDeck: (deckText: string, sourceName: string | null) => Promise<void>
+  isLoading: boolean
+  loadSampleDeck: () => void
+  setDraftText: (value: string) => void
+  sourceName: string | null
+}
+
+export type DeckAnalysisModel = {
+  combinedStarterResult: OpeningHandCalculationResult | null
+  deckView: DeckView
+  mainDeckSize: number
+  sourceName: string | null
+  starterCopies: number
+  updateStarterCopies: (value: number) => void
+}

@@ -1,8 +1,9 @@
+import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import type { WorkbenchModel } from '../hooks/use-deck-workbench'
 import { clampStarterCopies, formatPercent } from '../lib/utils'
+import type { DeckAnalysisModel } from '../types'
 
-export function ConfigHero({ model }: { model: WorkbenchModel }) {
+export function ConfigHero({ model }: { model: DeckAnalysisModel }) {
   return (
     <section className="surface-panel config-hero analysis-hero">
       <div className="analysis-toolbar-title">
@@ -17,26 +18,23 @@ export function ConfigHero({ model }: { model: WorkbenchModel }) {
         </div>
         <div>
           <span>来源</span>
-          <strong>
-            {model.deckView?.sourceName ?? model.sourceName ?? '直接粘贴'}
-          </strong>
+          <strong>{model.deckView.sourceName ?? model.sourceName ?? '直接粘贴'}</strong>
         </div>
       </div>
 
       <div className="config-hero-actions analysis-toolbar-actions">
-        <button
+        <Link
           className="secondary-button ghost"
-          type="button"
-          onClick={() => model.setStage('landing')}
+          to="/"
         >
           返回导入页
-        </button>
+        </Link>
       </div>
     </section>
   )
 }
 
-export function StarterCountPanel({ model }: { model: WorkbenchModel }) {
+export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
   const [draftValue, setDraftValue] = useState(
     model.starterCopies > 0 ? String(model.starterCopies) : '',
   )
@@ -86,7 +84,7 @@ export function StarterCountPanel({ model }: { model: WorkbenchModel }) {
   )
 }
 
-export function RateBoard({ model }: { model: WorkbenchModel }) {
+export function RateBoard({ model }: { model: DeckAnalysisModel }) {
   const startRate = model.combinedStarterResult?.openingHandProbability ?? 0
 
   return (

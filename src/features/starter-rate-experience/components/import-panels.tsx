@@ -4,16 +4,16 @@ import {
   MAIN_DECK_MIN_CARDS,
   SIDE_DECK_MAX_CARDS,
 } from '../../../lib/ydk'
-import type { WorkbenchModel } from '../hooks/use-deck-workbench'
 import { MAX_UPLOAD_BYTES } from '../lib/constants'
-import { formatByteLimit, getTotalCards } from '../lib/utils'
+import { formatByteLimit } from '../lib/utils'
+import type { DeckImportModel } from '../types'
 
 export function LandingDeckInput({
   inputId,
   model,
 }: {
   inputId: string
-  model: WorkbenchModel
+  model: DeckImportModel
 }) {
   return (
     <section className="surface-panel deck-input-panel">
@@ -161,18 +161,13 @@ export function ImportGuidePanel() {
   )
 }
 
-function ImportStatusBanner({ model }: { model: WorkbenchModel }) {
+function ImportStatusBanner({ model }: { model: DeckImportModel }) {
   return (
     <section className="import-status-banner" aria-live="polite">
       {model.errorMessage ? (
         <p className="status-message is-error">{model.errorMessage}</p>
       ) : model.isLoading ? (
         <p className="status-message">正在从 YGOCDB 拉取卡片资料...</p>
-      ) : model.deckView ? (
-        <p className="status-message">
-          已载入 {getTotalCards(model.deckView)} 张卡，来源：
-          {model.deckView.sourceName ?? '粘贴的卡组文本'}。
-        </p>
       ) : (
         <p className="status-message">
           还没有导入卡组。先把卡表放进来，才能开始看起手率。

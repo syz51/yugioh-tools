@@ -11,12 +11,18 @@ import {
   getPreferredCardName,
 } from '../../../lib/ygocdb'
 import { MAX_UPLOAD_BYTES, SECTION_LABELS, SECTION_ORDER } from './constants'
-import type { DeckCardView, DeckSortKey, DeckView } from '../types'
+import type {
+  DeckAnalysisPayload,
+  DeckCardView,
+  DeckSortKey,
+  DeckView,
+} from '../types'
 
 export function buildDeckView(
   parsedDeck: ParsedYdkDeck,
   lookup: Map<string, DeckCardLookup>,
   sourceName: string | null,
+  importedAt: Date = new Date(),
 ): DeckView {
   const sections = SECTION_ORDER.map((section) => {
     const cards = collapseDeckSection(parsedDeck.sections[section]).map(
@@ -57,10 +63,7 @@ export function buildDeckView(
 
   return {
     createdBy: parsedDeck.createdBy,
-    importedAt: new Intl.DateTimeFormat(APP_LOCALE, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date()),
+    importedAt: importedAt.toISOString(),
     sourceName,
     warnings: parsedDeck.warnings,
     uniqueCards: lookup.size,
@@ -68,6 +71,18 @@ export function buildDeckView(
       (entry) => entry.status === 'missing',
     ).length,
     sections,
+  }
+}
+
+export function buildDeckAnalysisPayload(
+  deckView: DeckView,
+): DeckAnalysisPayload {
+  const mainSection =
+    deckView.sections.find((section) => section.key === 'main') ?? null
+
+  return {
+    deckView,
+    mainDeckSize: mainSection?.totalCards ?? 0,
   }
 }
 
@@ -110,6 +125,10 @@ export function clampStarterCopies(value: number, mainDeckSize: number) {
   }
 
   return Math.max(0, Math.min(mainDeckSize, Math.floor(value)))
+}
+
+export function getDefaultStarterCopies(mainDeckSize: number) {
+  return Math.min(12, mainDeckSize)
 }
 
 export function sortDeckEntries(

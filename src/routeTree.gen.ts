@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnalysisAnalysisIdRouteImport } from './routes/analysis.$analysisId'
 import { Route as ApiYgocdbSyncRouteImport } from './routes/api/ygocdb/sync'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysisAnalysisIdRoute = AnalysisAnalysisIdRouteImport.update({
+  id: '/analysis/$analysisId',
+  path: '/analysis/$analysisId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiYgocdbSyncRoute = ApiYgocdbSyncRouteImport.update({
@@ -25,27 +31,31 @@ const ApiYgocdbSyncRoute = ApiYgocdbSyncRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/api/ygocdb/sync': typeof ApiYgocdbSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/api/ygocdb/sync': typeof ApiYgocdbSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
   '/api/ygocdb/sync': typeof ApiYgocdbSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/ygocdb/sync'
+  fullPaths: '/' | '/analysis/$analysisId' | '/api/ygocdb/sync'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/ygocdb/sync'
-  id: '__root__' | '/' | '/api/ygocdb/sync'
+  to: '/' | '/analysis/$analysisId' | '/api/ygocdb/sync'
+  id: '__root__' | '/' | '/analysis/$analysisId' | '/api/ygocdb/sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalysisAnalysisIdRoute: typeof AnalysisAnalysisIdRoute
   ApiYgocdbSyncRoute: typeof ApiYgocdbSyncRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analysis/$analysisId': {
+      id: '/analysis/$analysisId'
+      path: '/analysis/$analysisId'
+      fullPath: '/analysis/$analysisId'
+      preLoaderRoute: typeof AnalysisAnalysisIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/ygocdb/sync': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalysisAnalysisIdRoute: AnalysisAnalysisIdRoute,
   ApiYgocdbSyncRoute: ApiYgocdbSyncRoute,
 }
 export const routeTree = rootRouteImport
