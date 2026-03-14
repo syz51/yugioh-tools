@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   collapseDeckSection,
+  EXTRA_DECK_MAX_CARDS,
+  getDeckConstructionError,
   getDeckCardCount,
   getUniqueDeckCardCount,
+  MAIN_DECK_MAX_CARDS,
+  MAIN_DECK_MIN_CARDS,
   parseYdk,
+  SIDE_DECK_MAX_CARDS,
 } from './ydk'
 
 describe('parseYdk', () => {
@@ -67,5 +72,45 @@ describe('deck counting helpers', () => {
 
     expect(getDeckCardCount(deck)).toBe(5)
     expect(getUniqueDeckCardCount(deck)).toBe(3)
+  })
+})
+
+describe('getDeckConstructionError', () => {
+  it('accepts a legal deck size across all sections', () => {
+    const deck = parseYdk(`#main
+${'89631139\n'.repeat(MAIN_DECK_MIN_CARDS)}#extra
+${'23995346\n'.repeat(EXTRA_DECK_MAX_CARDS)}!side
+${'5851097\n'.repeat(SIDE_DECK_MAX_CARDS)}`)
+
+    expect(getDeckConstructionError(deck)).toBeNull()
+  })
+
+  it('rejects a main deck smaller than 40 cards', () => {
+    const deck = parseYdk(`#main
+${'89631139\n'.repeat(MAIN_DECK_MIN_CARDS - 1)}`)
+
+    expect(getDeckConstructionError(deck)).toBe(
+      `主卡组当前为 ${MAIN_DECK_MIN_CARDS - 1} 张。YGO 卡组的主卡组需要 ${MAIN_DECK_MIN_CARDS} - ${MAIN_DECK_MAX_CARDS} 张。`,
+    )
+  })
+
+  it('rejects an extra deck larger than 15 cards', () => {
+    const deck = parseYdk(`#main
+${'89631139\n'.repeat(MAIN_DECK_MIN_CARDS)}#extra
+${'23995346\n'.repeat(EXTRA_DECK_MAX_CARDS + 1)}`)
+
+    expect(getDeckConstructionError(deck)).toBe(
+      `额外卡组当前为 ${EXTRA_DECK_MAX_CARDS + 1} 张。YGO 卡组的额外卡组最多 ${EXTRA_DECK_MAX_CARDS} 张。`,
+    )
+  })
+
+  it('rejects a side deck larger than 15 cards', () => {
+    const deck = parseYdk(`#main
+${'89631139\n'.repeat(MAIN_DECK_MIN_CARDS)}!side
+${'5851097\n'.repeat(SIDE_DECK_MAX_CARDS + 1)}`)
+
+    expect(getDeckConstructionError(deck)).toBe(
+      `副卡组当前为 ${SIDE_DECK_MAX_CARDS + 1} 张。YGO 卡组的副卡组最多 ${SIDE_DECK_MAX_CARDS} 张。`,
+    )
   })
 })

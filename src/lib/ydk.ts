@@ -6,6 +6,11 @@ export type ParsedYdkDeck = {
   warnings: string[]
 }
 
+export const MAIN_DECK_MIN_CARDS = 40
+export const MAIN_DECK_MAX_CARDS = 60
+export const EXTRA_DECK_MAX_CARDS = 15
+export const SIDE_DECK_MAX_CARDS = 15
+
 const SECTION_BY_MARKER: Partial<Record<string, DeckSection>> = {
   '#main': 'main',
   '#extra': 'extra',
@@ -95,4 +100,23 @@ export function getDeckCardCount(deck: ParsedYdkDeck) {
 
 export function getUniqueDeckCardCount(deck: ParsedYdkDeck) {
   return new Set(getDeckCardIds(deck)).size
+}
+
+export function getDeckConstructionError(deck: ParsedYdkDeck) {
+  const mainCount = deck.sections.main.length
+  if (mainCount < MAIN_DECK_MIN_CARDS || mainCount > MAIN_DECK_MAX_CARDS) {
+    return `主卡组当前为 ${mainCount} 张。YGO 卡组的主卡组需要 ${MAIN_DECK_MIN_CARDS} - ${MAIN_DECK_MAX_CARDS} 张。`
+  }
+
+  const extraCount = deck.sections.extra.length
+  if (extraCount > EXTRA_DECK_MAX_CARDS) {
+    return `额外卡组当前为 ${extraCount} 张。YGO 卡组的额外卡组最多 ${EXTRA_DECK_MAX_CARDS} 张。`
+  }
+
+  const sideCount = deck.sections.side.length
+  if (sideCount > SIDE_DECK_MAX_CARDS) {
+    return `副卡组当前为 ${sideCount} 张。YGO 卡组的副卡组最多 ${SIDE_DECK_MAX_CARDS} 张。`
+  }
+
+  return null
 }

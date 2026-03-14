@@ -4,10 +4,15 @@ import { startTransition, useEffect, useId, useRef, useState } from 'react'
 import { calculateOpeningHandProbabilities } from '../lib/opening-hand-calculator'
 import {
   collapseDeckSection,
+  EXTRA_DECK_MAX_CARDS,
+  getDeckConstructionError,
   getDeckCardCount,
   getDeckCardIds,
   getUniqueDeckCardCount,
+  MAIN_DECK_MAX_CARDS,
+  MAIN_DECK_MIN_CARDS,
   parseYdk,
+  SIDE_DECK_MAX_CARDS,
 } from '../lib/ydk'
 import type { DeckSection } from '../lib/ydk'
 import type { DeckCardLookup } from '../lib/ygocdb'
@@ -58,8 +63,6 @@ const SECTION_LABELS: Record<DeckSection, string> = {
 }
 
 const MAX_UPLOAD_BYTES = 256 * 1024
-const MAX_DECK_CARD_LINES = 256
-const MAX_UNIQUE_CARD_IDS = 128
 const CARD_FETCH_CONCURRENCY = 8
 
 const SAMPLE_DECK_NAME = '示例-青眼白龙.ydk'
@@ -498,8 +501,9 @@ function LandingDeckInput({
             {model.isLoading ? '正在载入卡组...' : '导入并开始分析'}
           </button>
           <div className="deck-limit-note">
-            最多 {MAX_DECK_CARD_LINES} 行 · 最多 {MAX_UNIQUE_CARD_IDS} 张不同卡
-            · 文件上限 {formatByteLimit(MAX_UPLOAD_BYTES)}
+            主卡组 {MAIN_DECK_MIN_CARDS} - {MAIN_DECK_MAX_CARDS} 张 ·
+            额外卡组最多 {EXTRA_DECK_MAX_CARDS} 张 · 副卡组最多{' '}
+            {SIDE_DECK_MAX_CARDS} 张 · 文件上限 {formatByteLimit(MAX_UPLOAD_BYTES)}
           </div>
         </div>
       </form>
@@ -564,7 +568,8 @@ function ImportGuidePanel() {
         <div>
           <dt>当前限制</dt>
           <dd>
-            {MAX_DECK_CARD_LINES} 行 · {MAX_UNIQUE_CARD_IDS} 张不同卡 ·{' '}
+            主卡组 {MAIN_DECK_MIN_CARDS} - {MAIN_DECK_MAX_CARDS} 张 · 额外卡组最多{' '}
+            {EXTRA_DECK_MAX_CARDS} 张 · 副卡组最多 {SIDE_DECK_MAX_CARDS} 张 ·{' '}
             {formatByteLimit(MAX_UPLOAD_BYTES)}
           </dd>
         </div>
@@ -1076,17 +1081,7 @@ function getDeckImportLimitError(
     )} 以内。`
   }
 
-  const totalCards = getDeckCardCount(parsedDeck)
-  if (totalCards > MAX_DECK_CARD_LINES) {
-    return `这次导入共包含 ${totalCards} 行卡片。当前版本每副卡组最多支持 ${MAX_DECK_CARD_LINES} 行。`
-  }
-
-  const uniqueCards = getUniqueDeckCardCount(parsedDeck)
-  if (uniqueCards > MAX_UNIQUE_CARD_IDS) {
-    return `这次导入包含 ${uniqueCards} 张不同卡片。当前版本每副卡组最多支持 ${MAX_UNIQUE_CARD_IDS} 张不同卡。`
-  }
-
-  return null
+  return getDeckConstructionError(parsedDeck)
 }
 
 function formatByteLimit(bytes: number) {
