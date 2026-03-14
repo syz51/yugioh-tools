@@ -1,7 +1,4 @@
-import {
-  collapseDeckSection,
-  getDeckConstructionError,
-} from '../../../lib/ydk'
+import { collapseDeckSection, getDeckConstructionError } from '../../../lib/ydk'
 import type { ParsedYdkDeck } from '../../../lib/ydk'
 import type { DeckCardLookup } from '../../../lib/ygocdb'
 import {
@@ -9,6 +6,7 @@ import {
   getCardImageUrl,
   getLocalizedCardDetails,
   getPreferredCardName,
+  getSearchableCardNames,
 } from '../../../lib/ygocdb'
 import { MAX_UPLOAD_BYTES, SECTION_LABELS, SECTION_ORDER } from './constants'
 import type {
@@ -35,6 +33,7 @@ export function buildDeckView(
             copies: entry.copies,
             status: 'missing' as const,
             name: `未识别卡片 ${entry.id}`,
+            searchAliases: [`未识别卡片 ${entry.id}`],
             imageUrl: null,
             details: [
               lookupEntry?.message ?? `未返回卡号 ${entry.id} 的卡片资料。`,
@@ -47,6 +46,7 @@ export function buildDeckView(
           copies: entry.copies,
           status: 'ready' as const,
           name: getPreferredCardName(lookupEntry.card, entry.id),
+          searchAliases: getSearchableCardNames(lookupEntry.card, entry.id),
           imageUrl: getCardImageUrl(entry.id),
           details: getLocalizedCardDetails(lookupEntry.card),
         }
@@ -125,10 +125,6 @@ export function clampStarterCopies(value: number, mainDeckSize: number) {
   }
 
   return Math.max(0, Math.min(mainDeckSize, Math.floor(value)))
-}
-
-export function getDefaultStarterCopies(mainDeckSize: number) {
-  return Math.min(12, mainDeckSize)
 }
 
 export function sortDeckEntries(

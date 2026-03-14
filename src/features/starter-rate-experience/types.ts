@@ -7,6 +7,7 @@ export type DeckCardView = {
   copies: number
   status: DeckCardLookup['status']
   name: string
+  searchAliases: string[]
   imageUrl: string | null
   details: string[]
 }
@@ -59,8 +60,16 @@ export type DeckImportModel = {
 export type DeckAnalysisModel = {
   combinedStarterResult: OpeningHandCalculationResult | null
   deckView: DeckView
+  mainDeckEntries: DeckCardView[]
   mainDeckSize: number
+  maxTwoCardSupplementCopies: number
+  selectedOneCardStarterEntries: DeckCardView[]
+  selectedOneCardStarterIds: string[]
+  selectedTwoCardStarter: DeckCardView | null
   sourceName: string | null
   starterCopies: number
-  updateStarterCopies: (value: number) => void
+  twoCardSupplementCopies: number
+  toggleOneCardStarterSelection: (value: string) => void
+  updateSelectedTwoCardStarter: (value: string) => void
+  updateTwoCardSupplementCopies: (value: number) => void
 }

@@ -4,7 +4,11 @@ import { useNavigate } from '@tanstack/react-router'
 import { getDeckCardCount, parseYdk } from '../../../lib/ydk'
 import { createDeckAnalysis } from '../lib/deck-analysis.functions'
 import { deckAnalysisQueryOptions } from '../lib/deck-analysis.query'
-import { MAX_UPLOAD_BYTES, SAMPLE_DECK_NAME, SAMPLE_YDK } from '../lib/constants'
+import {
+  MAX_UPLOAD_BYTES,
+  SAMPLE_DECK_NAME,
+  SAMPLE_YDK,
+} from '../lib/constants'
 import { formatByteLimit, getDeckImportLimitError } from '../lib/utils'
 
 export function useDeckImport() {
@@ -71,7 +75,6 @@ export function useDeckImport() {
         void navigate({
           to: '/analysis/$analysisId',
           params: { analysisId: result.analysisId },
-          search: { starters: result.defaultStarterCopies },
         })
       })
     } catch (error) {

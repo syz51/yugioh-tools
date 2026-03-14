@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { YgocdbCard } from './ygocdb'
-import { getLocalizedCardDetails, getPreferredCardName } from './ygocdb'
+import {
+  getLocalizedCardDetails,
+  getPreferredCardName,
+  getSearchableCardNames,
+} from './ygocdb'
 
 describe('getPreferredCardName', () => {
   it('prefers simplified Chinese names for Chinese users', () => {
@@ -48,5 +52,28 @@ describe('getLocalizedCardDetails', () => {
         },
       } as Partial<YgocdbCard>),
     ).toEqual(['攻击 1200 / 守备 800'])
+  })
+})
+
+describe('getSearchableCardNames', () => {
+  it('returns all localized names without duplicates', () => {
+    expect(
+      getSearchableCardNames(
+        {
+          en_name: 'Ash Blossom & Joyous Spring',
+          md_name: '灰流うらら',
+          sc_name: '灰流丽',
+          cn_name: '灰流丽',
+          jp_name: '灰流うらら',
+        },
+        '14558127',
+      ),
+    ).toEqual(['灰流丽', '灰流うらら', 'Ash Blossom & Joyous Spring'])
+  })
+
+  it('falls back to the unknown label when card data is missing', () => {
+    expect(getSearchableCardNames(undefined, '12345678')).toEqual([
+      '未识别卡片 12345678',
+    ])
   })
 })

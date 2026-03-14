@@ -122,6 +122,23 @@ export function getPreferredCardName(
   )
 }
 
+export function getSearchableCardNames(
+  card: Partial<YgocdbCard> | undefined,
+  cardId: string,
+) {
+  if (!card) {
+    return [`未识别卡片 ${cardId}`]
+  }
+
+  return [
+    ...new Set(
+      [card.sc_name, card.cn_name, card.md_name, card.jp_name, card.en_name]
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ]
+}
+
 export function getLocalizedCardDetails(card: Partial<YgocdbCard> | undefined) {
   if (!card) {
     return []

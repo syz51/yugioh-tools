@@ -30,6 +30,43 @@ describe('calculateOpeningHandProbabilities', () => {
     expect(result.resolvedProbability).toBeCloseTo(expected, 12)
   })
 
+  it('matches the closed-form probability for a selected two-card starter', () => {
+    const result = calculateOpeningHandProbabilities({
+      deckSize: 40,
+      pools: [
+        {
+          id: 'starter',
+          label: 'Main starter',
+          copies: 3,
+        },
+        {
+          id: 'supplements',
+          label: 'Supplements',
+          copies: 9,
+        },
+      ],
+      recipes: [
+        {
+          id: 'two-card',
+          label: 'Starter + supplement',
+          requirements: [
+            { poolId: 'starter', count: 1 },
+            { poolId: 'supplements', count: 1 },
+          ],
+        },
+      ],
+    })
+
+    const expected =
+      1 -
+      choose(37, 5) / choose(40, 5) -
+      choose(31, 5) / choose(40, 5) +
+      choose(28, 5) / choose(40, 5)
+
+    expect(result.openingHandProbability).toBeCloseTo(expected, 12)
+    expect(result.resolvedProbability).toBeCloseTo(expected, 12)
+  })
+
   it('throws when named pools exceed the deck size', () => {
     expect(() =>
       calculateOpeningHandProbabilities({

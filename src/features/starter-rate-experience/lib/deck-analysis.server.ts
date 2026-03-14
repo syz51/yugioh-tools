@@ -8,7 +8,6 @@ import { CARD_FETCH_CONCURRENCY } from './constants'
 import {
   buildDeckAnalysisPayload,
   buildDeckView,
-  getDefaultStarterCopies,
   getDeckImportLimitError,
 } from './utils'
 import type { DeckAnalysisRecord } from '../types'
@@ -68,7 +67,6 @@ export async function createPersistedDeckAnalysis({
   return {
     analysis,
     analysisId: analysis.id,
-    defaultStarterCopies: getDefaultStarterCopies(analysis.payload.mainDeckSize),
   }
 }
 
