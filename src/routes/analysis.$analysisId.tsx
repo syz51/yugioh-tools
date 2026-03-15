@@ -122,8 +122,8 @@ function AnalysisRouteComponent() {
               : selectedOneCardStarterIds.includes(value)
                 ? current
                 : mainDeckEntries.find((entry) => entry.id === value)
-                ? [...current, value]
-                : current,
+                  ? [...current, value]
+                  : current,
           ),
         updateTwoCardSupplementCopies: (value) =>
           setTwoCardSupplementCopies(
