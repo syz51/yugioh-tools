@@ -248,7 +248,6 @@ jobs:
       needs.docker.result == 'success' &&
       (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
     environment: production
-
     steps:
       - name: Call Dokploy deployment webhook
         env:
