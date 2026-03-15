@@ -72,9 +72,13 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
 
     return matchesStarterSearch(entry, normalizedOneCardStarterSearchValue)
   })
-  const visibleTwoCardStarterEntries = model.mainDeckEntries.filter((entry) =>
-    matchesStarterSearch(entry, normalizedTwoCardStarterSearchValue),
-  )
+  const visibleTwoCardStarterEntries = model.mainDeckEntries.filter((entry) => {
+    if (model.selectedOneCardStarterIds.includes(entry.id)) {
+      return false
+    }
+
+    return matchesStarterSearch(entry, normalizedTwoCardStarterSearchValue)
+  })
   const selectedTwoCardStarterCopies =
     model.selectedTwoCardStarterEntries.reduce(
       (sum, entry) => sum + entry.copies,
@@ -378,7 +382,10 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
                   </div>
                 ) : (
                   <p className="starter-config-note">
-                    没有匹配当前筛选条件的主卡组卡片。
+                    {model.selectedOneCardStarterIds.length ===
+                    model.mainDeckEntries.length
+                      ? '当前主卡组卡片都已经在一卡动池里，暂时没有可选的二卡动主启动。'
+                      : '没有匹配当前筛选条件的主卡组卡片。'}
                   </p>
                 )}
 

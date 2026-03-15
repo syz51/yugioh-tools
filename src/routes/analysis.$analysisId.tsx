@@ -53,6 +53,12 @@ function AnalysisRouteComponent() {
     setTwoCardSupplementCopies(0)
   }, [analysisId])
 
+  useEffect(() => {
+    setSelectedTwoCardStarterIds((current) =>
+      current.filter((id) => !selectedOneCardStarterIds.includes(id)),
+    )
+  }, [selectedOneCardStarterIds])
+
   const selectedOneCardStarterEntries = mainDeckEntries.filter((entry) =>
     selectedOneCardStarterIds.includes(entry.id),
   )
@@ -113,7 +119,9 @@ function AnalysisRouteComponent() {
           setSelectedTwoCardStarterIds((current) =>
             current.includes(value)
               ? current.filter((id) => id !== value)
-              : mainDeckEntries.find((entry) => entry.id === value)
+              : selectedOneCardStarterIds.includes(value)
+                ? current
+                : mainDeckEntries.find((entry) => entry.id === value)
                 ? [...current, value]
                 : current,
           ),

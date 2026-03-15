@@ -112,4 +112,24 @@ describe('StarterCountPanel', () => {
 
     expect(model.clearTwoCardStarterSelections).toHaveBeenCalled()
   })
+
+  it('excludes selected one-card starters from the two-card picker', () => {
+    const model = createModel({
+      selectedOneCardStarterEntries: [
+        createDeckCardView({
+          id: '14558127',
+          name: 'Ash Blossom & Joyous Spring',
+          searchAliases: ['Ash Blossom & Joyous Spring', '灰流丽', '14558127'],
+        }),
+      ],
+      selectedOneCardStarterIds: ['14558127'],
+    })
+
+    render(<StarterCountPanel model={model} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: '二卡动' }))
+
+    expect(screen.queryByText('Ash Blossom & Joyous Spring')).toBeNull()
+    expect(screen.getByText('Maxx "C"')).toBeTruthy()
+  })
 })
