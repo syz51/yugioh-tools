@@ -58,11 +58,11 @@ jobs:
         run: bun run build
 
   changes:
-    name: Detect migration changes
+    name: Determine migration release requirements
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     outputs:
-      has_migrations: ${{ steps.detect.outputs.has_migrations }}
+      should_run_migrations: ${{ steps.detect.outputs.should_run_migrations }}
 
     steps:
       - name: Check out repository
@@ -70,29 +70,32 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Detect changed migration files
+      - name: Detect whether migrations should run
         id: detect
         shell: bash
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" != "push" ]]; then
-            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          should_run_migrations=false
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.push_migration_image }}" == "true" ]]; then
+              should_run_migrations=true
+            fi
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            before_sha="${{ github.event.before }}"
+            after_sha="${{ github.sha }}"
+
+            if [[ "$before_sha" == "0000000000000000000000000000000000000000" ]]; then
+              changed_files="$(git diff-tree --no-commit-id --name-only -r "$after_sha")"
+            else
+              changed_files="$(git diff --name-only "$before_sha" "$after_sha")"
+            fi
+
+            if grep -qE '^drizzle/.*\.sql$' <<< "$changed_files"; then
+              should_run_migrations=true
+            fi
           fi
 
-          before_sha="${{ github.event.before }}"
-          after_sha="${{ github.sha }}"
-
-          if [[ "$before_sha" == "0000000000000000000000000000000000000000" ]]; then
-            changed_files="$(git diff-tree --no-commit-id --name-only -r "$after_sha")"
-          else
-            changed_files="$(git diff --name-only "$before_sha" "$after_sha")"
-          fi
-
-          if grep -qE '^drizzle/.*\.sql$' <<< "$changed_files"; then
-            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "should_run_migrations=${should_run_migrations}" >> "$GITHUB_OUTPUT"
 
   docker:
     name: Build and push image
@@ -158,8 +161,10 @@ jobs:
     needs:
       - quality
       - changes
-    if: github.ref == 'refs/heads/main' && (needs.changes.outputs.has_migrations == 'true' || github.event.inputs.push_migration_image == 'true')
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.should_run_migrations == 'true'
     environment: production
+    outputs:
+      image_ref: ${{ steps.image_ref.outputs.image_ref }}
 
     steps:
       - name: Check out repository
@@ -203,12 +208,45 @@ jobs:
           provenance: false
           sbom: false
 
-  deploy:
-    name: Trigger Dokploy
+      - name: Record immutable migration image reference
+        id: image_ref
+        run: echo "image_ref=${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/${{ secrets.TCR_REPOSITORY }}-migrate:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+  migrate:
+    name: Trigger Dokploy migrations
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: docker
-    if: github.ref == 'refs/heads/main'
+    needs:
+      - changes
+      - docker
+      - docker-migrate
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.should_run_migrations == 'true'
+    environment: production
+
+    steps:
+      - name: Call Dokploy migration webhook
+        env:
+          DOKPLOY_MIGRATION_WEBHOOK_URL: ${{ secrets.DOKPLOY_MIGRATION_WEBHOOK_URL }}
+          MIGRATION_IMAGE_REF: ${{ needs.docker-migrate.outputs.image_ref }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            --data "{\"repository\":\"${GITHUB_REPOSITORY}\",\"sha\":\"${GITHUB_SHA}\",\"image\":\"${MIGRATION_IMAGE_REF}\"}" \
+            "$DOKPLOY_MIGRATION_WEBHOOK_URL"
+
+  deploy:
+    name: Trigger Dokploy deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - docker
+      - migrate
+    if: |
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.docker.result == 'success' &&
+      (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
     environment: production
 
     steps:

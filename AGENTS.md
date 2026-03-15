@@ -132,8 +132,8 @@ bun --bun run build
 - TanStack Start builds the production artifact into `.output/`.
 - The production container is built from `Dockerfile` and runs `bun .output/server/index.mjs`.
 - Dokploy should deploy the image pushed by `.github/workflows/deploy.yml`.
-- Production database migrations are applied by GitHub Actions from `.github/workflows/migrate-production.yml`.
-- The production migration workflow runs on pushes to `main` when files in `drizzle/*.sql` change, and it uses the `PRODUCTION_DATABASE_URL` secret.
+- Production database migrations are triggered through Dokploy webhooks from `.github/workflows/deploy.yml`.
+- `.github/workflows/migrate-production.yml` is a manual fallback that calls the Dokploy migration webhook directly.
 
 ## PR and Change Guidance
 
