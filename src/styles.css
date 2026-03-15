@@ -888,7 +888,7 @@ code {
 .two-card-row-stats,
 .two-card-row-actions,
 .two-card-editor-actions,
-.two-card-selected-partners-stats {
+.two-card-partner-dock-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -934,7 +934,7 @@ code {
 
 .two-card-row-main-copy strong,
 .two-card-editor-section-head strong,
-.two-card-selected-partner-copy strong {
+.two-card-partner-dock-chip strong {
   min-width: 0;
   color: var(--text);
   font: 700 0.96rem/1.35 var(--headline-font);
@@ -943,7 +943,7 @@ code {
 .two-card-row-main-copy span:last-child,
 .two-card-editor-section-head span,
 .two-card-row-empty,
-.two-card-selected-partner-copy span,
+.two-card-partner-dock-empty,
 .starter-picker-row-copy span {
   color: var(--text-dim);
   font-size: 0.8rem;
@@ -972,7 +972,7 @@ code {
 }
 
 .two-card-row-stats span,
-.two-card-selected-partners-stats span {
+.two-card-partner-dock-stats span {
   color: var(--text-dim);
   font: 700 0.72rem/1.2 var(--mono-font);
   letter-spacing: 0.06em;
@@ -980,7 +980,7 @@ code {
 }
 
 .two-card-row-stats strong,
-.two-card-selected-partners-stats strong {
+.two-card-partner-dock-stats strong {
   color: var(--text);
   font: 700 0.95rem/1.2 var(--headline-font);
 }
@@ -1058,6 +1058,87 @@ code {
 .two-card-editor-section-head > div:first-child {
   display: grid;
   gap: 4px;
+}
+
+.two-card-partner-workspace {
+  display: grid;
+  gap: 12px;
+}
+
+.two-card-partner-dock {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 120px;
+  padding: 12px;
+  border: 1px solid rgba(216, 171, 109, 0.12);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(216, 171, 109, 0.08), transparent 72%),
+    rgba(255, 245, 232, 0.03);
+}
+
+.two-card-partner-dock-head {
+  display: grid;
+  gap: 8px;
+}
+
+.two-card-partner-dock-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.two-card-partner-dock-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: start;
+}
+
+.two-card-partner-dock-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 245, 232, 0.08);
+  border-radius: 7px;
+  background: rgba(255, 245, 232, 0.035);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.two-card-partner-dock-chip strong {
+  font: 700 0.72rem/1 var(--mono-font);
+}
+
+.two-card-partner-dock-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.two-card-partner-dock-chip.is-muted {
+  color: var(--text-dim);
+}
+
+.two-card-partner-dock-empty {
+  margin: 0;
+}
+
+.two-card-partner-dock-actions {
+  margin-top: auto;
+}
+
+.two-card-partner-editor-pane {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
 }
 
 .starter-main-card-art img {
@@ -1248,36 +1329,6 @@ code {
   color: var(--text-dim);
   font: 500 0.74rem/1.4 var(--mono-font);
   word-break: break-all;
-}
-
-.two-card-selected-partners {
-  display: grid;
-  gap: 10px;
-}
-
-.two-card-selected-partners-stats {
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.two-card-selected-partners-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
-}
-
-.two-card-selected-partner {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 245, 232, 0.06);
-  border-radius: 8px;
-  background: rgba(255, 245, 232, 0.025);
-}
-
-.two-card-selected-partner-copy {
-  display: grid;
-  gap: 4px;
 }
 
 .starter-picker-list {
@@ -1708,6 +1759,18 @@ code {
   flex-shrink: 0;
 }
 
+@media (min-width: 960px) {
+  .two-card-partner-workspace.is-editor-open {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .two-card-partner-workspace.is-editor-open .two-card-partner-dock {
+    position: sticky;
+    top: 12px;
+  }
+}
+
 @media (max-width: 1120px) {
   .landing-grid,
   .config-grid,
@@ -1810,17 +1873,18 @@ code {
   .two-card-row-actions,
   .two-card-editor-section-head,
   .two-card-editor-actions,
-  .two-card-selected-partners-stats {
+  .two-card-partner-dock-stats,
+  .two-card-partner-dock-actions {
     flex-direction: column;
   }
 
   .two-card-row-actions .starter-picker-toggle,
-  .two-card-editor-actions .starter-picker-toggle {
+  .two-card-editor-actions .starter-picker-toggle,
+  .two-card-partner-dock-actions .starter-picker-toggle {
     width: 100%;
   }
 
-  .two-card-row-stats,
-  .two-card-selected-partners-list {
+  .two-card-row-stats {
     width: 100%;
   }
 

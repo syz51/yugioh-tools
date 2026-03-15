@@ -150,6 +150,252 @@ describe('StarterCountPanel', () => {
     )
   })
 
+  it('renders the partner dock for a main card even when no partners are selected', () => {
+    const ashBlossom = createDeckCardView({
+      id: '14558127',
+      name: 'Ash Blossom & Joyous Spring',
+      searchAliases: ['Ash Blossom & Joyous Spring', '灰流丽', '14558127'],
+    })
+    const model = createModel({
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+        }),
+      ],
+    })
+
+    render(<StarterCountPanel model={model} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: '二卡动' }))
+
+    expect(screen.getByText('已选 0 张搭配卡')).toBeTruthy()
+    expect(screen.getByText('0 张拷贝')).toBeTruthy()
+    expect(
+      screen.getByText(
+        '还没有搭配卡。展开编辑后，只勾选真正能和这张主启动形成二卡动的卡。',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('opens the partner picker without rendering the removed selected-list region', () => {
+    const ashBlossom = createDeckCardView({
+      id: '14558127',
+      name: 'Ash Blossom & Joyous Spring',
+      searchAliases: ['Ash Blossom & Joyous Spring', '灰流丽', '14558127'],
+    })
+    const model = createModel({
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+        }),
+      ],
+    })
+
+    render(<StarterCountPanel model={model} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: '二卡动' }))
+    expect(screen.getByText('已选 0 张搭配卡')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '选择搭配卡' }))
+
+    expect(
+      screen.getByLabelText('按卡名或卡号筛选搭配卡'),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('list', { name: /已选搭配卡/i }),
+    ).toBeNull()
+  })
+
+  it('updates the dock summary when the first partner is selected', () => {
+    const ashBlossom = createDeckCardView({
+      id: '14558127',
+      name: 'Ash Blossom & Joyous Spring',
+      searchAliases: ['Ash Blossom & Joyous Spring', '灰流丽', '14558127'],
+    })
+    const maxxC = createDeckCardView({
+      id: '23434538',
+      name: 'Maxx "C"',
+      searchAliases: ['Maxx "C"', '增殖的G', '23434538'],
+    })
+    const initialModel = createModel({
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+        }),
+      ],
+    })
+
+    const { rerender } = render(<StarterCountPanel model={initialModel} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: '二卡动' }))
+    fireEvent.click(screen.getByRole('button', { name: '选择搭配卡' }))
+    fireEvent.click(screen.getByRole('button', { name: /Maxx "C"/i }))
+
+    expect(initialModel.toggleTwoCardStarterRowSupplement).toHaveBeenCalledWith(
+      'row-1',
+      '23434538',
+    )
+
+    const updatedModel = createModel({
+      toggleTwoCardStarterRowSupplement:
+        initialModel.toggleTwoCardStarterRowSupplement,
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+          supplementCardIds: ['23434538'],
+          supplementEntries: [maxxC],
+        }),
+      ],
+    })
+
+    rerender(<StarterCountPanel model={updatedModel} />)
+
+    expect(screen.queryByText('已选 0 张搭配卡')).toBeNull()
+    expect(screen.getByText('已选 1 张搭配卡')).toBeTruthy()
+    expect(screen.getByText('3 张拷贝')).toBeTruthy()
+  })
+
+  it('filters the picker list down to selected partners only from the dock action', () => {
+    const ashBlossom = createDeckCardView({
+      id: '14558127',
+      name: 'Ash Blossom & Joyous Spring',
+      searchAliases: ['Ash Blossom & Joyous Spring', '灰流丽', '14558127'],
+    })
+    const maxxC = createDeckCardView({
+      id: '23434538',
+      name: 'Maxx "C"',
+      searchAliases: ['Maxx "C"', '增殖的G', '23434538'],
+    })
+    const model = createModel({
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+          supplementCardIds: ['23434538'],
+          supplementEntries: [maxxC],
+        }),
+      ],
+    })
+
+    render(<StarterCountPanel model={model} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: '二卡动' }))
+    fireEvent.click(screen.getByRole('button', { name: '编辑搭配卡' }))
+
+    expect(
+      screen.getByRole('button', { name: /Maxx "C"/i }),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: /Called by the Grave/i }),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '仅看已选' }))
+
+    expect(
+      screen.getByRole('button', { name: /Maxx "C"/i }),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: /Called by the Grave/i }),
+    ).toBeNull()
+  })
+
+  it('clears partners from the dock and returns to the zero state', () => {
+    const ashBlossom = createDeckCardView({
+      id: '14558127',
+      name: 'Ash Blossom & Joyous Spring',
+      searchAliases: ['Ash Blossom & Joyous Spring', '灰流丽', '14558127'],
+    })
+    const maxxC = createDeckCardView({
+      id: '23434538',
+      name: 'Maxx "C"',
+      searchAliases: ['Maxx "C"', '增殖的G', '23434538'],
+    })
+    const initialModel = createModel({
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+          supplementCardIds: ['23434538'],
+          supplementEntries: [maxxC],
+        }),
+      ],
+    })
+
+    const { rerender } = render(<StarterCountPanel model={initialModel} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: '二卡动' }))
+    fireEvent.click(screen.getByRole('button', { name: '清空搭配卡' }))
+
+    expect(initialModel.clearTwoCardStarterRowSupplements).toHaveBeenCalledWith(
+      'row-1',
+    )
+
+    const updatedModel = createModel({
+      clearTwoCardStarterRowSupplements:
+        initialModel.clearTwoCardStarterRowSupplements,
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+        }),
+      ],
+    })
+
+    rerender(<StarterCountPanel model={updatedModel} />)
+
+    expect(screen.getByText('已选 0 张搭配卡')).toBeTruthy()
+    expect(screen.getByText('0 张拷贝')).toBeTruthy()
+    expect(
+      screen.getByText(
+        '还没有搭配卡。展开编辑后，只勾选真正能和这张主启动形成二卡动的卡。',
+      ),
+    ).toBeTruthy()
+  })
+
+  it('keeps the clear action inside the dock instead of the section header', () => {
+    const ashBlossom = createDeckCardView({
+      id: '14558127',
+      name: 'Ash Blossom & Joyous Spring',
+      searchAliases: ['Ash Blossom & Joyous Spring', '灰流丽', '14558127'],
+    })
+    const maxxC = createDeckCardView({
+      id: '23434538',
+      name: 'Maxx "C"',
+      searchAliases: ['Maxx "C"', '增殖的G', '23434538'],
+    })
+    const model = createModel({
+      twoCardStarterRows: [
+        createTwoCardStarterRow({
+          id: 'row-1',
+          mainCardId: '14558127',
+          mainEntry: ashBlossom,
+          supplementCardIds: ['23434538'],
+          supplementEntries: [maxxC],
+        }),
+      ],
+    })
+
+    render(<StarterCountPanel model={model} />)
+
+    fireEvent.click(screen.getByRole('tab', { name: '二卡动' }))
+
+    const clearButton = screen.getByRole('button', { name: '清空搭配卡' })
+
+    expect(clearButton.closest('.two-card-partner-dock-actions')).toBeTruthy()
+    expect(clearButton.closest('.two-card-editor-section-head')).toBeNull()
+  })
+
   it('keeps a two-card row collapsed after clicking 收起详情', () => {
     const ashBlossom = createDeckCardView({
       id: '14558127',
