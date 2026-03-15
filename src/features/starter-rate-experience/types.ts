@@ -45,6 +45,17 @@ export type DeckAnalysisRecord = {
 export type DeckSortKey = 'name' | 'copies' | 'id' | 'details'
 export type DeckViewMode = 'table' | 'compact-main'
 
+export type TwoCardStarterRow = {
+  id: string
+  mainCardId: string | null
+  supplementCardIds: string[]
+}
+
+export type TwoCardStarterRowView = TwoCardStarterRow & {
+  mainEntry: DeckCardView | null
+  supplementEntries: DeckCardView[]
+}
+
 export type DeckImportModel = {
   clearWorkspace: () => void
   draftText: string
@@ -62,16 +73,15 @@ export type DeckAnalysisModel = {
   deckView: DeckView
   mainDeckEntries: DeckCardView[]
   mainDeckSize: number
-  maxTwoCardSupplementCopies: number
   selectedOneCardStarterEntries: DeckCardView[]
   selectedOneCardStarterIds: string[]
-  selectedTwoCardStarterEntries: DeckCardView[]
-  selectedTwoCardStarterIds: string[]
   sourceName: string | null
   starterCopies: number
-  twoCardSupplementCopies: number
-  clearTwoCardStarterSelections: () => void
+  twoCardStarterRows: TwoCardStarterRowView[]
+  addTwoCardStarterRow: () => void
+  clearTwoCardStarterRowSupplements: (rowId: string) => void
+  removeTwoCardStarterRow: (rowId: string) => void
   toggleOneCardStarterSelection: (value: string) => void
-  toggleTwoCardStarterSelection: (value: string) => void
-  updateTwoCardSupplementCopies: (value: number) => void
+  toggleTwoCardStarterRowSupplement: (rowId: string, value: string) => void
+  updateTwoCardStarterRowMainCard: (rowId: string, value: string | null) => void
 }

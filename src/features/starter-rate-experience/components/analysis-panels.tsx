@@ -1,6 +1,10 @@
-import { useDeferredValue, useEffect, useState } from 'react'
-import { clampStarterCopies, formatPercent } from '../lib/utils'
-import type { DeckAnalysisModel, DeckCardView } from '../types'
+import { useDeferredValue, useEffect, useRef, useState } from 'react'
+import { formatPercent } from '../lib/utils'
+import type {
+  DeckAnalysisModel,
+  DeckCardView,
+  TwoCardStarterRowView,
+} from '../types'
 
 type StarterConfigTab = 'one-card' | 'two-card'
 
@@ -19,47 +23,105 @@ function matchesStarterSearch(
   )
 }
 
+function getSupplementCopies(row: TwoCardStarterRowView) {
+  return row.supplementEntries.reduce((sum, entry) => sum + entry.copies, 0)
+}
+
 export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
-  const [supplementDraftValue, setSupplementDraftValue] = useState(
-    model.twoCardSupplementCopies > 0
-      ? String(model.twoCardSupplementCopies)
-      : '',
-  )
   const [activeTab, setActiveTab] = useState<StarterConfigTab>('one-card')
   const [oneCardStarterSearchValue, setOneCardStarterSearchValue] = useState('')
-  const [twoCardStarterSearchValue, setTwoCardStarterSearchValue] = useState('')
+  const [twoCardMainSearchValue, setTwoCardMainSearchValue] = useState('')
+  const [twoCardPartnerSearchValue, setTwoCardPartnerSearchValue] = useState('')
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
+  const [showSelectedPartnersOnly, setShowSelectedPartnersOnly] =
+    useState(false)
+  const [activeTwoCardRowId, setActiveTwoCardRowId] = useState<string | null>(
+    model.twoCardStarterRows[0]?.id ?? null,
+  )
+  const [mainCardPickerRowId, setMainCardPickerRowId] = useState<string | null>(
+    null,
+  )
+  const [partnerEditorRowId, setPartnerEditorRowId] = useState<string | null>(
+    null,
+  )
+  const previousTwoCardRowCountRef = useRef(model.twoCardStarterRows.length)
   const deferredOneCardStarterSearchValue = useDeferredValue(
     oneCardStarterSearchValue,
   )
-  const deferredTwoCardStarterSearchValue = useDeferredValue(
-    twoCardStarterSearchValue,
+  const deferredTwoCardMainSearchValue = useDeferredValue(
+    twoCardMainSearchValue,
+  )
+  const deferredTwoCardPartnerSearchValue = useDeferredValue(
+    twoCardPartnerSearchValue,
   )
 
   useEffect(() => {
-    setSupplementDraftValue(
-      model.twoCardSupplementCopies > 0
-        ? String(model.twoCardSupplementCopies)
-        : '',
-    )
-  }, [model.twoCardSupplementCopies])
-
-  useEffect(() => {
     setOneCardStarterSearchValue('')
-    setTwoCardStarterSearchValue('')
+    setTwoCardMainSearchValue('')
+    setTwoCardPartnerSearchValue('')
     setShowSelectedOnly(false)
+    setShowSelectedPartnersOnly(false)
+    setMainCardPickerRowId(null)
+    setPartnerEditorRowId(null)
   }, [model.mainDeckEntries])
 
+  useEffect(() => {
+    const previousCount = previousTwoCardRowCountRef.current
+    const currentRows = model.twoCardStarterRows
+
+    if (currentRows.length === 0) {
+      setActiveTwoCardRowId(null)
+      setMainCardPickerRowId(null)
+      setPartnerEditorRowId(null)
+    } else if (currentRows.length > previousCount) {
+      const newestRowId = currentRows[currentRows.length - 1]?.id ?? null
+      setActiveTwoCardRowId(newestRowId)
+      setMainCardPickerRowId(newestRowId)
+      setPartnerEditorRowId(null)
+      setTwoCardMainSearchValue('')
+      setTwoCardPartnerSearchValue('')
+      setShowSelectedPartnersOnly(false)
+    } else if (
+      activeTwoCardRowId !== null &&
+      !currentRows.some((row) => row.id === activeTwoCardRowId)
+    ) {
+      setActiveTwoCardRowId(currentRows[0]?.id ?? null)
+    }
+
+    if (!currentRows.some((row) => row.id === mainCardPickerRowId)) {
+      setMainCardPickerRowId(null)
+    }
+
+    if (!currentRows.some((row) => row.id === partnerEditorRowId)) {
+      setPartnerEditorRowId(null)
+    }
+
+    previousTwoCardRowCountRef.current = currentRows.length
+  }, [
+    activeTwoCardRowId,
+    mainCardPickerRowId,
+    model.twoCardStarterRows,
+    partnerEditorRowId,
+  ])
+
+  const configuredTwoCardRows = model.twoCardStarterRows.filter(
+    (row) => row.mainEntry !== null && row.supplementEntries.length > 0,
+  )
   const tabSummary =
     activeTab === 'one-card'
       ? `${model.selectedOneCardStarterEntries.length} 张卡 / ${model.starterCopies} 张拷贝`
-      : model.selectedTwoCardStarterEntries.length > 0
-        ? `${model.selectedTwoCardStarterEntries.length} 张主启动 / ${model.twoCardSupplementCopies} 张补点`
-        : '选择主启动并填写补点总数'
+      : configuredTwoCardRows.length > 0
+        ? `${configuredTwoCardRows.length} 条组合已完成`
+        : model.twoCardStarterRows.length > 0
+          ? '为每一行分别指定主启动和搭配卡'
+          : '新增主启动行后开始配置'
   const normalizedOneCardStarterSearchValue = deferredOneCardStarterSearchValue
     .trim()
     .toLocaleLowerCase()
-  const normalizedTwoCardStarterSearchValue = deferredTwoCardStarterSearchValue
+  const normalizedTwoCardMainSearchValue = deferredTwoCardMainSearchValue
+    .trim()
+    .toLocaleLowerCase()
+  const normalizedTwoCardPartnerSearchValue = deferredTwoCardPartnerSearchValue
     .trim()
     .toLocaleLowerCase()
   const visibleStarterEntries = model.mainDeckEntries.filter((entry) => {
@@ -72,18 +134,59 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
 
     return matchesStarterSearch(entry, normalizedOneCardStarterSearchValue)
   })
-  const visibleTwoCardStarterEntries = model.mainDeckEntries.filter((entry) => {
-    if (model.selectedOneCardStarterIds.includes(entry.id)) {
-      return false
+
+  function getAvailableTwoCardMainEntries(
+    rowId: string,
+    rowMainCardId: string | null,
+  ) {
+    const usedMainIds = new Set(
+      model.twoCardStarterRows.flatMap((row) =>
+        row.id !== rowId && row.mainCardId ? [row.mainCardId] : [],
+      ),
+    )
+
+    return model.mainDeckEntries.filter((entry) => {
+      if (model.selectedOneCardStarterIds.includes(entry.id)) {
+        return false
+      }
+
+      return entry.id === rowMainCardId || !usedMainIds.has(entry.id)
+    })
+  }
+
+  function toggleTwoCardRowDetails(rowId: string) {
+    if (activeTwoCardRowId === rowId) {
+      setActiveTwoCardRowId(null)
+      setMainCardPickerRowId(null)
+      setPartnerEditorRowId(null)
+      return
     }
 
-    return matchesStarterSearch(entry, normalizedTwoCardStarterSearchValue)
-  })
-  const selectedTwoCardStarterCopies =
-    model.selectedTwoCardStarterEntries.reduce(
-      (sum, entry) => sum + entry.copies,
-      0,
-    )
+    setActiveTwoCardRowId(rowId)
+    setMainCardPickerRowId(null)
+    setPartnerEditorRowId(null)
+    setTwoCardMainSearchValue('')
+    setTwoCardPartnerSearchValue('')
+    setShowSelectedPartnersOnly(false)
+  }
+
+  function toggleTwoCardMainPicker(rowId: string) {
+    setActiveTwoCardRowId(rowId)
+    setPartnerEditorRowId(null)
+    setTwoCardPartnerSearchValue('')
+    setShowSelectedPartnersOnly(false)
+    setTwoCardMainSearchValue('')
+    setMainCardPickerRowId((current) => (current === rowId ? null : rowId))
+  }
+
+  function toggleTwoCardPartnerEditor(rowId: string) {
+    setActiveTwoCardRowId(rowId)
+    setMainCardPickerRowId(null)
+    setTwoCardMainSearchValue('')
+    setTwoCardPartnerSearchValue('')
+    setShowSelectedPartnersOnly(false)
+    setPartnerEditorRowId((current) => (current === rowId ? null : rowId))
+  }
 
   return (
     <section className="surface-panel side-panel starter-count-panel">
@@ -276,165 +379,559 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
             <div className="starter-config-heading">
               <strong>二卡动</strong>
               <span>
-                可勾选多张主启动卡。系统会按任意已选主启动 + 任意补点来计算。
+                默认只保留主启动和搭配摘要，需要时再展开选择器或编辑卡池，减少长期占用的空间。
               </span>
             </div>
 
-            {model.mainDeckEntries.length > 0 ? (
-              <>
-                <div className="starter-picker-toolbar">
-                  <label
-                    className="starter-picker-search"
-                    htmlFor="two-card-starter-search"
-                  >
-                    <span>按卡名或卡号筛选主启动</span>
-                    <input
-                      id="two-card-starter-search"
-                      className="starter-picker-search-input"
-                      type="search"
-                      autoComplete="off"
-                      placeholder="例如 增殖的G / Maxx C / 23434538"
-                      value={twoCardStarterSearchValue}
-                      onChange={(event) =>
-                        setTwoCardStarterSearchValue(event.target.value)
-                      }
-                    />
-                  </label>
+            <div className="two-card-row-toolbar">
+              <div>
+                <strong>主启动行</strong>
+                <span>先选主启动，再按需展开搭配卡详情。</span>
+              </div>
+              <button
+                className="starter-picker-toggle"
+                type="button"
+                onClick={() => model.addTwoCardStarterRow()}
+              >
+                新增主启动行
+              </button>
+            </div>
 
-                  <div className="starter-picker-actions">
-                    <button
-                      className="starter-picker-toggle"
-                      type="button"
-                      disabled={model.selectedTwoCardStarterIds.length === 0}
-                      onClick={() => model.clearTwoCardStarterSelections()}
+            {model.twoCardStarterRows.length > 0 ? (
+              <div className="two-card-row-list" role="list">
+                {model.twoCardStarterRows.map((row, index) => {
+                  const isActive = row.id === activeTwoCardRowId
+                  const isMainPickerOpen = row.id === mainCardPickerRowId
+                  const isPartnerEditorOpen = row.id === partnerEditorRowId
+                  const supplementCopies = getSupplementCopies(row)
+                  const availableTwoCardMainEntries = getAvailableTwoCardMainEntries(
+                    row.id,
+                    row.mainCardId,
+                  )
+                  const visibleTwoCardMainEntries =
+                    availableTwoCardMainEntries.filter((entry) =>
+                      matchesStarterSearch(entry, normalizedTwoCardMainSearchValue),
+                    )
+                  const selectedPartnerIds = new Set(row.supplementCardIds)
+                  const otherTwoCardMainIds = new Set(
+                    model.twoCardStarterRows.flatMap((candidate) =>
+                      candidate.id !== row.id && candidate.mainCardId
+                        ? [candidate.mainCardId]
+                        : [],
+                    ),
+                  )
+                  const visibleTwoCardPartnerEntries = row.mainEntry
+                    ? model.mainDeckEntries.filter((entry) => {
+                        if (entry.id === row.mainCardId) {
+                          return false
+                        }
+
+                        if (model.selectedOneCardStarterIds.includes(entry.id)) {
+                          return false
+                        }
+
+                        if (
+                          showSelectedPartnersOnly &&
+                          !selectedPartnerIds.has(entry.id)
+                        ) {
+                          return false
+                        }
+
+                        return matchesStarterSearch(
+                          entry,
+                          normalizedTwoCardPartnerSearchValue,
+                        )
+                      })
+                    : []
+                  const previewEntries = row.supplementEntries.slice(0, 3)
+                  const remainingPreviewCount =
+                    row.supplementEntries.length - previewEntries.length
+
+                  return (
+                    <article
+                      className={`two-card-row-card ${
+                        isActive ? 'is-active' : ''
+                      }`}
+                      key={row.id}
+                      role="listitem"
                     >
-                      清空已选主启动
-                    </button>
-                  </div>
-                </div>
-
-                {visibleTwoCardStarterEntries.length > 0 ? (
-                  <div
-                    className="starter-pick-grid starter-pick-grid-two-card"
-                    role="list"
-                    aria-label="二卡动主启动选择"
-                  >
-                    {visibleTwoCardStarterEntries.map((entry) => {
-                      const isSelected =
-                        model.selectedTwoCardStarterIds.includes(entry.id)
-                      const isOneCardStarter =
-                        model.selectedOneCardStarterIds.includes(entry.id)
-
-                      return (
-                        <button
-                          aria-pressed={isSelected}
-                          className={`starter-pick-card ${
-                            isSelected ? 'is-selected is-primary-selected' : ''
-                          }`}
-                          key={`two-card-${entry.id}`}
-                          type="button"
-                          onClick={() =>
-                            model.toggleTwoCardStarterSelection(entry.id)
-                          }
-                        >
-                          <div className="starter-pick-art">
-                            {entry.imageUrl ? (
+                      <div className="two-card-row-summary">
+                        <div className="two-card-row-main-summary">
+                          <div className="two-card-row-main-art">
+                            {row.mainEntry?.imageUrl ? (
                               <img
-                                alt={entry.name}
+                                alt={row.mainEntry.name}
                                 draggable={false}
                                 height={350}
                                 loading="lazy"
-                                src={entry.imageUrl}
+                                src={row.mainEntry.imageUrl}
                                 width={240}
                               />
                             ) : (
                               <div className="starter-card-fallback">
-                                {entry.id}
+                                {row.mainEntry?.id ?? '主启动'}
                               </div>
                             )}
-                            <span className="starter-pick-copies">
-                              {entry.copies}x
-                            </span>
-                            {isSelected ? (
-                              <span className="starter-pick-selected">
-                                已选
-                              </span>
-                            ) : null}
                           </div>
-                          <div className="starter-pick-meta">
-                            <strong className="starter-pick-name">
-                              {entry.name}
+
+                          <div className="two-card-row-main-copy">
+                            <span className="two-card-row-index">
+                              行 {index + 1}
+                            </span>
+                            <strong>
+                              {row.mainEntry?.name ?? '未选择主启动'}
                             </strong>
-                            <span className="starter-pick-id">
-                              {entry.status === 'missing'
-                                ? '资料缺失'
-                                : entry.id}
+                            <span>
+                              {row.mainEntry
+                                ? `${row.mainEntry.copies}x 本体 · ${
+                                    row.mainEntry.status === 'missing'
+                                      ? '资料缺失'
+                                      : row.mainEntry.id
+                                  }`
+                                : '展开详情后，从带卡图的选择器里挑选主启动卡。'}
                             </span>
-                            {isOneCardStarter ? (
-                              <span className="starter-main-card-flag">
-                                已在一卡动池
-                              </span>
-                            ) : null}
                           </div>
+                        </div>
+
+                        <div className="two-card-row-stats">
+                          <div>
+                            <span>搭配卡</span>
+                            <strong>{row.supplementEntries.length} 张</strong>
+                          </div>
+                          <div>
+                            <span>搭配拷贝</span>
+                            <strong>{supplementCopies} 张</strong>
+                          </div>
+                        </div>
+
+                        <div className="two-card-row-preview">
+                          {row.supplementEntries.length > 0 ? (
+                            <>
+                              {previewEntries.map((entry) => (
+                                <span
+                                  className="two-card-row-preview-chip"
+                                  key={`${row.id}-${entry.id}`}
+                                >
+                                  {entry.name}
+                                  <strong>{entry.copies}x</strong>
+                                </span>
+                              ))}
+                              {remainingPreviewCount > 0 ? (
+                                <span className="two-card-row-preview-chip is-muted">
+                                  +{remainingPreviewCount} 张
+                                </span>
+                              ) : null}
+                            </>
+                          ) : (
+                            <p className="two-card-row-empty">
+                              还没有搭配卡。展开详情后再精确指定。
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="two-card-row-actions">
+                        <button
+                          aria-expanded={isActive}
+                          className="starter-picker-toggle"
+                          type="button"
+                          onClick={() => toggleTwoCardRowDetails(row.id)}
+                        >
+                          {isActive ? '收起详情' : '展开详情'}
                         </button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="starter-config-note">
-                    {model.selectedOneCardStarterIds.length ===
-                    model.mainDeckEntries.length
-                      ? '当前主卡组卡片都已经在一卡动池里，暂时没有可选的二卡动主启动。'
-                      : '没有匹配当前筛选条件的主卡组卡片。'}
-                  </p>
-                )}
+                        <button
+                          className="starter-picker-toggle"
+                          type="button"
+                          onClick={() => model.removeTwoCardStarterRow(row.id)}
+                        >
+                          移除此行
+                        </button>
+                      </div>
 
-                <label
-                  className="starter-count-field"
-                  htmlFor="two-card-supplement-input"
-                >
-                  <span>补点总张数</span>
-                  <input
-                    id="two-card-supplement-input"
-                    className="starter-count-input"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="off"
-                    disabled={model.selectedTwoCardStarterEntries.length === 0}
-                    placeholder={
-                      model.selectedTwoCardStarterEntries.length === 0
-                        ? '先选主启动'
-                        : '0'
-                    }
-                    value={supplementDraftValue}
-                    onChange={(event) => {
-                      const nextValue = event.target.value.replace(/\D+/g, '')
-                      if (nextValue === '') {
-                        setSupplementDraftValue('')
-                        model.updateTwoCardSupplementCopies(0)
-                        return
-                      }
+                      {isActive ? (
+                        <div className="two-card-row-detail">
+                          <section className="two-card-editor-section">
+                            <div className="two-card-editor-section-head">
+                              <div>
+                                <strong>主启动卡</strong>
+                                <span>
+                                  只在需要时展开选择器，按卡图和卡名确认主启动。
+                                </span>
+                              </div>
 
-                      const clampedValue = clampStarterCopies(
-                        Number(nextValue),
-                        model.maxTwoCardSupplementCopies,
-                      )
-                      setSupplementDraftValue(String(clampedValue))
-                      model.updateTwoCardSupplementCopies(clampedValue)
-                    }}
-                  />
-                </label>
+                              <div className="two-card-editor-actions">
+                                <button
+                                  className={`starter-picker-toggle ${
+                                    isMainPickerOpen ? 'is-active' : ''
+                                  }`}
+                                  type="button"
+                                  onClick={() => toggleTwoCardMainPicker(row.id)}
+                                >
+                                  {isMainPickerOpen
+                                    ? '收起选择器'
+                                    : row.mainEntry
+                                      ? '更换主启动'
+                                      : '选择主启动卡'}
+                                </button>
+                                <button
+                                  className="starter-picker-toggle"
+                                  type="button"
+                                  disabled={row.mainCardId === null}
+                                  onClick={() => {
+                                    setMainCardPickerRowId(null)
+                                    setPartnerEditorRowId(null)
+                                    model.updateTwoCardStarterRowMainCard(
+                                      row.id,
+                                      null,
+                                    )
+                                  }}
+                                >
+                                  清空
+                                </button>
+                              </div>
+                            </div>
 
-                <p className="starter-config-note">
-                  {model.selectedTwoCardStarterEntries.length > 0
-                    ? `当前已选 ${model.selectedTwoCardStarterEntries.length} 张主启动、共 ${selectedTwoCardStarterCopies} 张本体拷贝。补点上限为 ${model.maxTwoCardSupplementCopies}，并会自动排除已选的一卡动卡与已选主启动本体。`
-                    : '先选主启动卡，系统才会根据当前一卡动配置计算可填写的补点上限。'}
-                </p>
-              </>
+                            {row.mainEntry ? (
+                              <div className="starter-selection-summary starter-main-card-summary starter-main-card-summary-compact">
+                                <div className="starter-main-card-art">
+                                  {row.mainEntry.imageUrl ? (
+                                    <img
+                                      alt={row.mainEntry.name}
+                                      draggable={false}
+                                      height={350}
+                                      loading="lazy"
+                                      src={row.mainEntry.imageUrl}
+                                      width={240}
+                                    />
+                                  ) : (
+                                    <div className="starter-card-fallback">
+                                      {row.mainEntry.id}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="starter-main-card-copy">
+                                  <strong>{row.mainEntry.name}</strong>
+                                  <span>
+                                    {row.mainEntry.copies}x 本体 ·{' '}
+                                    {row.mainEntry.status === 'missing'
+                                      ? '资料缺失'
+                                      : row.mainEntry.id}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="starter-config-note">
+                                还没有主启动卡。打开选择器后可以直接看卡图挑选。
+                              </p>
+                            )}
+
+                            {isMainPickerOpen ? (
+                              <div className="two-card-main-picker">
+                                <label
+                                  className="starter-picker-search"
+                                  htmlFor={`two-card-main-search-${row.id}`}
+                                >
+                                  <span>按卡名或卡号筛选主启动卡</span>
+                                  <input
+                                    id={`two-card-main-search-${row.id}`}
+                                    className="starter-picker-search-input"
+                                    type="search"
+                                    autoComplete="off"
+                                    placeholder="例如 灰流丽 / Ash Blossom / 14558127"
+                                    value={twoCardMainSearchValue}
+                                    onChange={(event) =>
+                                      setTwoCardMainSearchValue(
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </label>
+
+                                {visibleTwoCardMainEntries.length > 0 ? (
+                                  <div
+                                    className="two-card-main-picker-grid"
+                                    role="list"
+                                    aria-label={`主启动卡选择 ${index + 1}`}
+                                  >
+                                    {visibleTwoCardMainEntries.map((entry) => {
+                                      const isSelected =
+                                        row.mainCardId === entry.id
+
+                                      return (
+                                        <button
+                                          aria-pressed={isSelected}
+                                          className={`two-card-main-picker-card ${
+                                            isSelected ? 'is-selected' : ''
+                                          }`}
+                                          key={`${row.id}-${entry.id}`}
+                                          type="button"
+                                          onClick={() => {
+                                            setMainCardPickerRowId(null)
+                                            setTwoCardMainSearchValue('')
+                                            model.updateTwoCardStarterRowMainCard(
+                                              row.id,
+                                              entry.id,
+                                            )
+                                          }}
+                                        >
+                                          <div className="two-card-main-picker-art">
+                                            {entry.imageUrl ? (
+                                              <img
+                                                alt={entry.name}
+                                                draggable={false}
+                                                height={350}
+                                                loading="lazy"
+                                                src={entry.imageUrl}
+                                                width={240}
+                                              />
+                                            ) : (
+                                              <div className="starter-card-fallback">
+                                                {entry.id}
+                                              </div>
+                                            )}
+                                            <span className="starter-pick-copies">
+                                              {entry.copies}x
+                                            </span>
+                                          </div>
+                                          <div className="starter-pick-meta">
+                                            <strong className="starter-pick-name">
+                                              {entry.name}
+                                            </strong>
+                                            <span className="starter-pick-id">
+                                              {entry.status === 'missing'
+                                                ? '资料缺失'
+                                                : entry.id}
+                                            </span>
+                                          </div>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="starter-config-note">
+                                    没有匹配当前筛选条件的主卡组卡片。
+                                  </p>
+                                )}
+                              </div>
+                            ) : null}
+                          </section>
+
+                          <section className="two-card-editor-section">
+                            <div className="two-card-editor-section-head">
+                              <div>
+                                <strong>搭配卡</strong>
+                                <span>
+                                  先看摘要，需要修改时再展开完整卡池。与其他行重叠的卡会自动去重。
+                                </span>
+                              </div>
+
+                              <div className="two-card-editor-actions">
+                                <button
+                                  className={`starter-picker-toggle ${
+                                    isPartnerEditorOpen ? 'is-active' : ''
+                                  }`}
+                                  type="button"
+                                  disabled={row.mainEntry === null}
+                                  onClick={() =>
+                                    toggleTwoCardPartnerEditor(row.id)
+                                  }
+                                >
+                                  {isPartnerEditorOpen
+                                    ? '收起搭配编辑'
+                                    : row.supplementEntries.length > 0
+                                      ? '编辑搭配卡'
+                                      : '选择搭配卡'}
+                                </button>
+                                <button
+                                  className="starter-picker-toggle"
+                                  type="button"
+                                  disabled={row.supplementEntries.length === 0}
+                                  onClick={() => {
+                                    setPartnerEditorRowId(null)
+                                    model.clearTwoCardStarterRowSupplements(
+                                      row.id,
+                                    )
+                                  }}
+                                >
+                                  清空搭配卡
+                                </button>
+                              </div>
+                            </div>
+
+                            {row.mainEntry ? (
+                              row.supplementEntries.length > 0 ? (
+                                <div className="two-card-selected-partners">
+                                  <div className="two-card-selected-partners-stats">
+                                    <span>
+                                      已选 {row.supplementEntries.length} 张搭配卡
+                                    </span>
+                                    <strong>{supplementCopies} 张拷贝</strong>
+                                  </div>
+                                  <div
+                                    className="two-card-selected-partners-list"
+                                    role="list"
+                                    aria-label={`已选搭配卡 ${index + 1}`}
+                                  >
+                                    {row.supplementEntries.map((entry) => (
+                                      <div
+                                        className="two-card-selected-partner"
+                                        key={`${row.id}-selected-${entry.id}`}
+                                        role="listitem"
+                                      >
+                                        <div className="two-card-selected-partner-copy">
+                                          <strong>{entry.name}</strong>
+                                          <span>
+                                            {entry.copies}x ·{' '}
+                                            {entry.status === 'missing'
+                                              ? '资料缺失'
+                                              : entry.id}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="starter-config-note">
+                                  还没有搭配卡。展开编辑后，只勾选真正能和这张主启动形成二卡动的卡。
+                                </p>
+                              )
+                            ) : (
+                              <p className="starter-config-note">
+                                先选择主启动卡，再配置搭配卡。
+                              </p>
+                            )}
+
+                            {row.mainEntry && isPartnerEditorOpen ? (
+                              <>
+                                <div className="starter-picker-toolbar">
+                                  <label
+                                    className="starter-picker-search"
+                                    htmlFor={`two-card-partner-search-${row.id}`}
+                                  >
+                                    <span>按卡名或卡号筛选搭配卡</span>
+                                    <input
+                                      id={`two-card-partner-search-${row.id}`}
+                                      className="starter-picker-search-input"
+                                      type="search"
+                                      autoComplete="off"
+                                      placeholder="例如 增殖的G / Maxx C / 23434538"
+                                      value={twoCardPartnerSearchValue}
+                                      onChange={(event) =>
+                                        setTwoCardPartnerSearchValue(
+                                          event.target.value,
+                                        )
+                                      }
+                                    />
+                                  </label>
+
+                                  <div className="starter-picker-actions">
+                                    <button
+                                      className={`starter-picker-toggle ${
+                                        showSelectedPartnersOnly
+                                          ? 'is-active'
+                                          : ''
+                                      }`}
+                                      type="button"
+                                      onClick={() =>
+                                        setShowSelectedPartnersOnly(
+                                          (current) => !current,
+                                        )
+                                      }
+                                    >
+                                      {showSelectedPartnersOnly
+                                        ? '显示全部'
+                                        : '仅看已选'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {visibleTwoCardPartnerEntries.length > 0 ? (
+                                  <div
+                                    className="starter-picker-list"
+                                    role="list"
+                                    aria-label={`二卡动搭配卡选择 ${index + 1}`}
+                                  >
+                                    {visibleTwoCardPartnerEntries.map((entry) => {
+                                      const isSelected = selectedPartnerIds.has(
+                                        entry.id,
+                                      )
+                                      const isOtherTwoCardMain =
+                                        otherTwoCardMainIds.has(entry.id)
+
+                                      return (
+                                        <button
+                                          aria-pressed={isSelected}
+                                          className={`starter-picker-row ${
+                                            isSelected ? 'is-selected' : ''
+                                          }`}
+                                          key={`${row.id}-${entry.id}`}
+                                          type="button"
+                                          onClick={() =>
+                                            model.toggleTwoCardStarterRowSupplement(
+                                              row.id,
+                                              entry.id,
+                                            )
+                                          }
+                                        >
+                                          <div className="starter-picker-row-art">
+                                            {entry.imageUrl ? (
+                                              <img
+                                                alt={entry.name}
+                                                draggable={false}
+                                                height={350}
+                                                loading="lazy"
+                                                src={entry.imageUrl}
+                                                width={240}
+                                              />
+                                            ) : (
+                                              <div className="starter-card-fallback">
+                                                {entry.id}
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          <div className="starter-picker-row-copy">
+                                            <strong>{entry.name}</strong>
+                                            <span>
+                                              {entry.copies}x ·{' '}
+                                              {entry.status === 'missing'
+                                                ? '资料缺失'
+                                                : entry.id}
+                                            </span>
+                                            {isOtherTwoCardMain ? (
+                                              <span className="starter-main-card-flag">
+                                                其他主启动
+                                              </span>
+                                            ) : null}
+                                          </div>
+
+                                          <span className="starter-picker-row-state">
+                                            {isSelected ? '已选' : '选择'}
+                                          </span>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="starter-config-note">
+                                    {showSelectedPartnersOnly
+                                      ? '当前这一行还没有已选搭配卡。'
+                                      : '没有匹配当前筛选条件的主卡组卡片。'}
+                                  </p>
+                                )}
+                              </>
+                            ) : null}
+                          </section>
+                        </div>
+                      ) : null}
+                    </article>
+                  )
+                })}
+              </div>
             ) : (
               <p className="starter-config-note">
-                主卡组里还没有可选卡片，所以暂时不能配置指定主启动。
+                还没有主启动行。新增一行后，就可以为每张主启动独立配置能配合它的卡。
               </p>
             )}
           </div>
@@ -447,16 +944,10 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
 export function RateBoard({ model }: { model: DeckAnalysisModel }) {
   const overallStartRate =
     model.combinedStarterResult?.openingHandProbability ?? 0
-  const hasTwoCardConfig =
-    model.selectedTwoCardStarterEntries.length > 0 &&
-    model.twoCardSupplementCopies > 0
-  const selectedTwoCardStarterExclusiveEntries =
-    model.selectedTwoCardStarterEntries.filter(
-      (entry) => !model.selectedOneCardStarterIds.includes(entry.id),
-    )
-  const selectedStarterPoolFullyCoveredByOneCardPool =
-    model.selectedTwoCardStarterEntries.length > 0 &&
-    selectedTwoCardStarterExclusiveEntries.length === 0
+  const configuredTwoCardRows = model.twoCardStarterRows.filter(
+    (row) => row.mainEntry !== null && row.supplementEntries.length > 0,
+  )
+  const hasTwoCardConfig = configuredTwoCardRows.length > 0
 
   return (
     <section className="surface-panel rate-panel">
@@ -466,16 +957,11 @@ export function RateBoard({ model }: { model: DeckAnalysisModel }) {
         <span>
           {model.starterCopies === 0 && !hasTwoCardConfig
             ? '先配置一卡动或二卡动，这里会显示整体起手率。'
-            : model.starterCopies > 0 &&
-                hasTwoCardConfig &&
-                !selectedStarterPoolFullyCoveredByOneCardPool
-              ? `已把 ${model.selectedOneCardStarterEntries.length} 张一卡动（共 ${model.starterCopies} 张）和 ${model.selectedTwoCardStarterEntries.length} 张已选主启动 + 任意 ${model.twoCardSupplementCopies} 张补点合并计算。`
+            : model.starterCopies > 0 && hasTwoCardConfig
+              ? `已把 ${model.selectedOneCardStarterEntries.length} 张一卡动（共 ${model.starterCopies} 张拷贝）和 ${configuredTwoCardRows.length} 条二卡动组合按实际卡片搭配合并计算。`
               : model.starterCopies > 0
-                ? selectedStarterPoolFullyCoveredByOneCardPool &&
-                  hasTwoCardConfig
-                  ? `当前已选主启动都包含在一卡动池里，所以整体起手率按已选的一卡动 ${model.starterCopies} 张拷贝计算。`
-                  : `当前按已选的一卡动 ${model.selectedOneCardStarterEntries.length} 张卡、共 ${model.starterCopies} 张拷贝计算。`
-                : `${model.selectedTwoCardStarterEntries.length} 张已选主启动 + 任意 ${model.twoCardSupplementCopies} 张补点的整体起手率。`}
+                ? `当前按已选的一卡动 ${model.selectedOneCardStarterEntries.length} 张卡、共 ${model.starterCopies} 张拷贝计算。`
+                : `当前按 ${configuredTwoCardRows.length} 条二卡动组合的实际卡片搭配计算。`}
         </span>
       </div>
     </section>

@@ -1,13 +1,15 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { StarterRateAnalysisPage } from '../features/starter-rate-experience'
 import { calculateCombinedStarterRate } from '../features/starter-rate-experience/lib/combined-starter-rate'
 import { deckAnalysisQueryOptions } from '../features/starter-rate-experience/lib/deck-analysis.query'
-import {
-  clampStarterCopies,
-  sortDeckEntries,
-} from '../features/starter-rate-experience/lib/utils'
+import { sortDeckEntries } from '../features/starter-rate-experience/lib/utils'
+import type {
+  DeckCardView,
+  TwoCardStarterRow,
+  TwoCardStarterRowView,
+} from '../features/starter-rate-experience/types'
 
 export const Route = createFileRoute('/analysis/$analysisId')({
   loader: ({ context, params }) =>
@@ -39,25 +41,33 @@ function AnalysisRouteComponent() {
       ),
     [analysis.payload.deckView.sections],
   )
+  const mainDeckEntryIds = useMemo(
+    () => new Set(mainDeckEntries.map((entry) => entry.id)),
+    [mainDeckEntries],
+  )
   const [selectedOneCardStarterIds, setSelectedOneCardStarterIds] = useState<
     string[]
   >([])
-  const [selectedTwoCardStarterIds, setSelectedTwoCardStarterIds] = useState<
-    string[]
+  const [twoCardStarterRows, setTwoCardStarterRows] = useState<
+    TwoCardStarterRow[]
   >([])
-  const [twoCardSupplementCopies, setTwoCardSupplementCopies] = useState(0)
+  const nextTwoCardStarterRowIdRef = useRef(1)
 
   useEffect(() => {
     setSelectedOneCardStarterIds([])
-    setSelectedTwoCardStarterIds([])
-    setTwoCardSupplementCopies(0)
+    setTwoCardStarterRows([])
+    nextTwoCardStarterRowIdRef.current = 1
   }, [analysisId])
 
   useEffect(() => {
-    setSelectedTwoCardStarterIds((current) =>
-      current.filter((id) => !selectedOneCardStarterIds.includes(id)),
+    setTwoCardStarterRows((current) =>
+      sanitizeTwoCardStarterRows(
+        current,
+        mainDeckEntryIds,
+        new Set(selectedOneCardStarterIds),
+      ),
     )
-  }, [selectedOneCardStarterIds])
+  }, [mainDeckEntryIds, selectedOneCardStarterIds])
 
   const selectedOneCardStarterEntries = mainDeckEntries.filter((entry) =>
     selectedOneCardStarterIds.includes(entry.id),
@@ -66,72 +76,203 @@ function AnalysisRouteComponent() {
     (sum, entry) => sum + entry.copies,
     0,
   )
-
-  const selectedTwoCardStarterEntries = mainDeckEntries.filter((entry) =>
-    selectedTwoCardStarterIds.includes(entry.id),
+  const twoCardStarterRowsView = buildTwoCardStarterRowsView(
+    twoCardStarterRows,
+    mainDeckEntries,
   )
-  const selectedTwoCardStarterExclusiveCopies = selectedTwoCardStarterEntries
-    .filter((entry) => !selectedOneCardStarterIds.includes(entry.id))
-    .reduce((sum, entry) => sum + entry.copies, 0)
-  const excludedCopiesForSupplements =
-    starterCopies + selectedTwoCardStarterExclusiveCopies
-  const maxPureSupplementCopies = Math.max(
-    mainDeckSize - excludedCopiesForSupplements,
-    0,
-  )
-
-  useEffect(() => {
-    setTwoCardSupplementCopies((current) =>
-      clampStarterCopies(current, maxPureSupplementCopies),
-    )
-  }, [maxPureSupplementCopies])
 
   const combinedStarterResult = calculateCombinedStarterRate({
+    deckEntries: mainDeckEntries.map((entry) => ({
+      copies: entry.copies,
+      id: entry.id,
+    })),
     deckSize: mainDeckSize,
-    oneCardStarterCopies: starterCopies,
-    selectedTwoCardStarterCopies: selectedTwoCardStarterExclusiveCopies,
-    twoCardSupplementCopies,
+    oneCardStarterIds: selectedOneCardStarterIds,
+    twoCardStarterRows,
   })
 
   return (
     <StarterRateAnalysisPage
       model={{
+        addTwoCardStarterRow: () => {
+          const nextId = nextTwoCardStarterRowIdRef.current
+          nextTwoCardStarterRowIdRef.current += 1
+          setTwoCardStarterRows((currentRows) => [
+            ...currentRows,
+            {
+              id: `two-card-row-${nextId}`,
+              mainCardId: null,
+              supplementCardIds: [],
+            },
+          ])
+        },
+        clearTwoCardStarterRowSupplements: (rowId) =>
+          setTwoCardStarterRows((current) =>
+            current.map((row) =>
+              row.id === rowId ? { ...row, supplementCardIds: [] } : row,
+            ),
+          ),
         combinedStarterResult,
         deckView: analysis.payload.deckView,
+        mainDeckEntries,
         mainDeckSize,
-        maxTwoCardSupplementCopies: maxPureSupplementCopies,
+        removeTwoCardStarterRow: (rowId) =>
+          setTwoCardStarterRows((current) =>
+            current.filter((row) => row.id !== rowId),
+          ),
         selectedOneCardStarterEntries,
         selectedOneCardStarterIds,
-        selectedTwoCardStarterEntries,
-        selectedTwoCardStarterIds,
-        mainDeckEntries,
         sourceName: analysis.sourceName,
         starterCopies,
-        twoCardSupplementCopies,
-        clearTwoCardStarterSelections: () => setSelectedTwoCardStarterIds([]),
         toggleOneCardStarterSelection: (value) =>
           setSelectedOneCardStarterIds((current) =>
             current.includes(value)
               ? current.filter((id) => id !== value)
               : [...current, value],
           ),
-        toggleTwoCardStarterSelection: (value) =>
-          setSelectedTwoCardStarterIds((current) =>
-            current.includes(value)
-              ? current.filter((id) => id !== value)
-              : selectedOneCardStarterIds.includes(value)
-                ? current
-                : mainDeckEntries.find((entry) => entry.id === value)
-                  ? [...current, value]
-                  : current,
+        toggleTwoCardStarterRowSupplement: (rowId, value) =>
+          setTwoCardStarterRows((current) =>
+            current.map((row) => {
+              if (row.id !== rowId || row.mainCardId === null) {
+                return row
+              }
+
+              if (
+                !mainDeckEntryIds.has(value) ||
+                value === row.mainCardId ||
+                selectedOneCardStarterIds.includes(value)
+              ) {
+                return row
+              }
+
+              return row.supplementCardIds.includes(value)
+                ? {
+                    ...row,
+                    supplementCardIds: row.supplementCardIds.filter(
+                      (id) => id !== value,
+                    ),
+                  }
+                : {
+                    ...row,
+                    supplementCardIds: [...row.supplementCardIds, value],
+                  }
+            }),
           ),
-        updateTwoCardSupplementCopies: (value) =>
-          setTwoCardSupplementCopies(
-            Math.max(0, Math.min(value, maxPureSupplementCopies)),
-          ),
+        twoCardStarterRows: twoCardStarterRowsView,
+        updateTwoCardStarterRowMainCard: (rowId, value) =>
+          setTwoCardStarterRows((current) => {
+            if (value === null || value === '') {
+              return current.map((row) =>
+                row.id === rowId
+                  ? { ...row, mainCardId: null, supplementCardIds: [] }
+                  : row,
+              )
+            }
+
+            if (
+              selectedOneCardStarterIds.includes(value) ||
+              !mainDeckEntryIds.has(value)
+            ) {
+              return current
+            }
+
+            const isUsedByOtherRow = current.some(
+              (row) => row.id !== rowId && row.mainCardId === value,
+            )
+
+            if (isUsedByOtherRow) {
+              return current
+            }
+
+            return current.map((row) =>
+              row.id === rowId
+                ? {
+                    ...row,
+                    mainCardId: value,
+                    supplementCardIds: row.supplementCardIds.filter(
+                      (id) => id !== value && mainDeckEntryIds.has(id),
+                    ),
+                  }
+                : row,
+            )
+          }),
       }}
     />
   )
+}
+
+function buildTwoCardStarterRowsView(
+  rows: TwoCardStarterRow[],
+  mainDeckEntries: DeckCardView[],
+) {
+  const entriesById = new Map(mainDeckEntries.map((entry) => [entry.id, entry]))
+
+  return rows.map<TwoCardStarterRowView>((row) => ({
+    ...row,
+    mainEntry: row.mainCardId
+      ? (entriesById.get(row.mainCardId) ?? null)
+      : null,
+    supplementEntries: row.supplementCardIds.flatMap((id) => {
+      const entry = entriesById.get(id)
+      return entry ? [entry] : []
+    }),
+  }))
+}
+
+function sanitizeTwoCardStarterRows(
+  rows: TwoCardStarterRow[],
+  mainDeckEntryIds: Set<string>,
+  oneCardStarterIds: Set<string>,
+) {
+  const usedMainCardIds = new Set<string>()
+  const nextRows = rows.map((row) => {
+    const nextMainCardId =
+      row.mainCardId &&
+      mainDeckEntryIds.has(row.mainCardId) &&
+      !oneCardStarterIds.has(row.mainCardId) &&
+      !usedMainCardIds.has(row.mainCardId)
+        ? row.mainCardId
+        : null
+
+    if (nextMainCardId) {
+      usedMainCardIds.add(nextMainCardId)
+    }
+
+    const seenSupplementIds = new Set<string>()
+    const nextSupplementCardIds = nextMainCardId
+      ? row.supplementCardIds.filter((id) => {
+          if (
+            id === nextMainCardId ||
+            oneCardStarterIds.has(id) ||
+            !mainDeckEntryIds.has(id) ||
+            seenSupplementIds.has(id)
+          ) {
+            return false
+          }
+
+          seenSupplementIds.add(id)
+          return true
+        })
+      : []
+
+    if (
+      row.mainCardId !== nextMainCardId ||
+      row.supplementCardIds.length !== nextSupplementCardIds.length ||
+      row.supplementCardIds.some(
+        (id, index) => id !== nextSupplementCardIds[index],
+      )
+    ) {
+      return {
+        ...row,
+        mainCardId: nextMainCardId,
+        supplementCardIds: nextSupplementCardIds,
+      }
+    }
+
+    return row
+  })
+
+  return nextRows.some((row, index) => row !== rows[index]) ? nextRows : rows
 }
 
 function MissingAnalysisPage() {
