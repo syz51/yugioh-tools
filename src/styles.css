@@ -750,6 +750,36 @@ code {
   gap: 12px;
 }
 
+.analysis-selection-persistence {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  text-align: right;
+}
+
+.analysis-selection-persistence-hint,
+.analysis-selection-restore-notice,
+.analysis-selection-copy-feedback {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.analysis-selection-restore-notice {
+  color: var(--gold-soft);
+}
+
+.analysis-selection-copy-feedback {
+  color: var(--text-soft);
+}
+
+.analysis-selection-persistence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .starter-config-shell {
   display: grid;
   gap: 14px;
@@ -1899,6 +1929,17 @@ code {
 
   .starter-config-tabs .section-tab {
     flex: 1 1 0;
+  }
+
+  .analysis-selection-persistence,
+  .analysis-selection-persistence-actions {
+    justify-items: stretch;
+    justify-content: stretch;
+    text-align: left;
+  }
+
+  .analysis-selection-persistence-actions .starter-picker-toggle {
+    width: 100%;
   }
 
   .deck-view-toolbar {

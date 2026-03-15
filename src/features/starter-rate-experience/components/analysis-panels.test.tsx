@@ -79,6 +79,7 @@ function createModel(
     mainDeckEntries,
     mainDeckSize: 40,
     removeTwoCardStarterRow: vi.fn(),
+    restoreNotice: null,
     selectedOneCardStarterEntries: [],
     selectedOneCardStarterIds: [],
     sourceName: 'Test Deck',
@@ -92,6 +93,39 @@ function createModel(
 }
 
 describe('StarterCountPanel', () => {
+  it('renders the persistence hint and copy-link action', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText,
+      },
+    })
+    window.history.replaceState({}, '', '/analysis/analysis-1')
+
+    render(<StarterCountPanel model={createModel()} />)
+
+    expect(
+      screen.getByText('当前链接会同步这台设备最近保存的起手点设置'),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '复制当前链接' }))
+
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+  })
+
+  it('renders the restore notice when selections were sanitized on restore', () => {
+    render(
+      <StarterCountPanel
+        model={createModel({
+          restoreNotice: '已恢复设置，部分无效项已自动移除',
+        })}
+      />,
+    )
+
+    expect(screen.getByText('已恢复设置，部分无效项已自动移除')).toBeTruthy()
+  })
+
   it('adds a new two-card starter row', () => {
     const model = createModel()
 

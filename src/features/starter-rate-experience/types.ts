@@ -51,6 +51,31 @@ export type TwoCardStarterRow = {
   supplementCardIds: string[]
 }
 
+export type AnalysisSelectionRow = {
+  mainCardId: string | null
+  supplementCardIds: string[]
+}
+
+export type AnalysisSelectionState = {
+  version: 1
+  oneCardStarterIds: string[]
+  twoCardStarterRows: AnalysisSelectionRow[]
+}
+
+export type AnalysisSelectionLocalCache = {
+  version: 1
+  workingCfg: string
+  state: AnalysisSelectionState
+}
+
+export type PersistedAnalysisSelectionConfig = {
+  cfg: string
+  analysisId: string
+  payload: AnalysisSelectionState
+  createdAt: string
+  updatedAt: string
+}
+
 export type TwoCardStarterRowView = TwoCardStarterRow & {
   mainEntry: DeckCardView | null
   supplementEntries: DeckCardView[]
@@ -73,6 +98,7 @@ export type DeckAnalysisModel = {
   deckView: DeckView
   mainDeckEntries: DeckCardView[]
   mainDeckSize: number
+  restoreNotice: string | null
   selectedOneCardStarterEntries: DeckCardView[]
   selectedOneCardStarterIds: string[]
   sourceName: string | null

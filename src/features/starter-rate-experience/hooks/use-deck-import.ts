@@ -75,6 +75,9 @@ export function useDeckImport() {
         void navigate({
           to: '/analysis/$analysisId',
           params: { analysisId: result.analysisId },
+          search: {
+            cfg: undefined,
+          },
         })
       })
     } catch (error) {

@@ -29,6 +29,7 @@ function getSupplementCopies(row: TwoCardStarterRowView) {
 
 export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
   const [activeTab, setActiveTab] = useState<StarterConfigTab>('one-card')
+  const [copyFeedbackVisible, setCopyFeedbackVisible] = useState(false)
   const [oneCardStarterSearchValue, setOneCardStarterSearchValue] = useState('')
   const [twoCardMainSearchValue, setTwoCardMainSearchValue] = useState('')
   const [twoCardPartnerSearchValue, setTwoCardPartnerSearchValue] = useState('')
@@ -64,6 +65,20 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
     setMainCardPickerRowId(null)
     setPartnerEditorRowId(null)
   }, [model.mainDeckEntries])
+
+  useEffect(() => {
+    if (!copyFeedbackVisible) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopyFeedbackVisible(false)
+    }, 1800)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [copyFeedbackVisible])
 
   useEffect(() => {
     const previousCount = previousTwoCardRowCountRef.current
@@ -177,11 +192,46 @@ export function StarterCountPanel({ model }: { model: DeckAnalysisModel }) {
     setPartnerEditorRowId((current) => (current === rowId ? null : rowId))
   }
 
+  async function copyCurrentLink() {
+    try {
+      await window.navigator.clipboard.writeText(window.location.href)
+      setCopyFeedbackVisible(true)
+    } catch {
+      setCopyFeedbackVisible(false)
+    }
+  }
+
   return (
     <section className="surface-panel side-panel starter-count-panel">
       <div className="panel-header-row compact">
         <div>
           <p className="panel-kicker">起手点设置</p>
+        </div>
+        <div className="analysis-selection-persistence">
+          <span className="analysis-selection-persistence-hint">
+            当前链接会同步这台设备最近保存的起手点设置
+          </span>
+          {model.restoreNotice ? (
+            <span className="analysis-selection-restore-notice">
+              {model.restoreNotice}
+            </span>
+          ) : null}
+          <div className="analysis-selection-persistence-actions">
+            <button
+              className="starter-picker-toggle"
+              type="button"
+              onClick={() => {
+                void copyCurrentLink()
+              }}
+            >
+              复制当前链接
+            </button>
+            {copyFeedbackVisible ? (
+              <span className="analysis-selection-copy-feedback">
+                已复制链接
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 
